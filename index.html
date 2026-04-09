@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B1PIU'8 di Biffi Davide — Ordini</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --cream: #faf6ef;
+    --warm: #f0e8d8;
+    --gold: #c8a96e;
+    --gold-light: #e8d5a8;
+    --rust: #b85c38;
+    --sage: #7a8c6e;
+    --card: #fffdf8;
+    --border: #e2d9c8;
+    --error: #c0392b;
+    --error-bg: #fdf0ee;
+    --shadow: rgba(26,18,8,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+  nav { background: var(--ink); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 100; }
+  .brand { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 1.2rem; letter-spacing: 0.04em; line-height: 1.2; }
+  .brand small { display: block; font-size: 0.65rem; color: #9e8e78; letter-spacing: 0.1em; text-transform: uppercase; font-family: 'DM Sans', sans-serif; }
+  .nav-tabs { display: flex; gap: 0.25rem; }
+  .nav-tab { background: none; border: none; color: #9e8e78; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.5rem 1.25rem; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+  .nav-tab:hover { color: var(--gold-light); background: rgba(200,169,110,0.1); }
+  .nav-tab.active { color: var(--gold); background: rgba(200,169,110,0.15); }
+  .nav-badge { background: var(--rust); color: white; font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; margin-left: 4px; vertical-align: middle; }
+
+  .page { display: none; padding: 2.5rem 2rem; max-width: 860px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  .form-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+  .form-header h1 { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 400; margin-bottom: 1.25rem; }
+  .intro-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.4rem 1.6rem; text-align: left; display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1rem; }
+  .intro-box p { font-size: 0.88rem; color: #4a3a22; line-height: 1.65; }
+  .intro-warning { background: #fff8e8; border: 1px solid #f0d88a; border-radius: 6px; padding: 0.6rem 0.85rem; font-size: 0.85rem !important; color: #7a5800 !important; }
+  .req-note { font-size: 0.82rem; color: #7a6a52; }
+
+  .form-grid { display: grid; gap: 1rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  @media(max-width:600px) { .form-row, .form-row.three { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field label { font-size: 0.78rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #6a5a42; }
+  .field label .req { color: var(--rust); }
+  .field input, .field select, .field textarea {
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.65rem 0.85rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; outline: none; width: 100%;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,169,110,0.15); }
+  .field input.error, .field select.error { border-color: var(--error) !important; box-shadow: 0 0 0 3px rgba(192,57,43,0.1) !important; }
+  .field .err { font-size: 0.72rem; color: var(--error); display: none; margin-top: 1px; }
+  .field .err.on { display: block; }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  .section-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 400; color: var(--ink); padding: 0.5rem 0; border-bottom: 1px solid var(--border); margin: 1.5rem 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .section-title::before { content: ''; display: inline-block; width: 3px; height: 1.1em; background: var(--gold); border-radius: 2px; }
+  .section-subtitle { font-family: 'DM Sans', sans-serif; font-size: 0.72rem; color: #8a7a62; font-weight: 400; margin-left: 0.25rem; }
+
+  .product-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; margin-bottom: 0.85rem; }
+  .prod-header { display: flex; align-items: center; margin-bottom: 0.9rem; }
+  .prod-num { font-family: 'Playfair Display', serif; font-size: 0.88rem; color: var(--gold); font-weight: 700; }
+  .remove-btn { margin-left: auto; background: none; border: none; color: #b0956e; cursor: pointer; font-size: 0.8rem; padding: 3px 8px; border-radius: 4px; transition: background 0.15s, color 0.15s; }
+  .remove-btn:hover { background: #fce8e0; color: var(--rust); }
+
+  .prod-upload { margin-top: 0.9rem; }
+  .prod-upload-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #6a5a42; margin-bottom: 0.4rem; display: block; }
+  .prod-upload-area { border: 1.5px dashed var(--border); border-radius: 7px; padding: 0.8rem 1rem; display: flex; align-items: center; gap: 0.75rem; background: var(--cream); cursor: pointer; transition: border-color 0.2s; position: relative; }
+  .prod-upload-area:hover { border-color: var(--gold); }
+  .prod-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .prod-upload-area .uicon { font-size: 1.2rem; flex-shrink: 0; }
+  .prod-upload-area p { font-size: 0.8rem; color: #8a7a62; }
+  .prod-upload-area p strong { color: var(--ink); }
+  .prod-preview { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+  .prod-preview .thumb { width: 52px; height: 52px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border); }
+  .prod-preview .fchip { background: var(--warm); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 0.72rem; color: #6a5a42; }
+
+  .add-product-btn { background: none; border: 1.5px dashed var(--gold); color: var(--gold); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; padding: 0.7rem; width: 100%; border-radius: 6px; cursor: pointer; transition: background 0.2s; letter-spacing: 0.03em; }
+  .add-product-btn:hover { background: rgba(200,169,110,0.08); }
+  .no-prods { text-align: center; padding: 1.5rem; color: #a09080; font-size: 0.85rem; background: var(--card); border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 0.75rem; }
+
+  .toggle-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 1rem; }
+  .toggle { width: 40px; height: 22px; background: var(--border); border-radius: 99px; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; border: none; }
+  .toggle.on { background: var(--gold); }
+  .toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle.on::after { left: 21px; }
+  .toggle-label { font-size: 0.85rem; }
+  .fatt-fields { display: none; }
+  .fatt-fields.on { display: block; }
+
+  .error-banner { background: var(--error-bg); border: 1px solid #f0b8b0; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.85rem; color: var(--error); display: none; margin-top: 0.5rem; }
+  .error-banner.on { display: block; }
+
+  .submit-btn { background: var(--ink); color: var(--gold-light); border: none; font-family: 'Playfair Display', serif; font-size: 1rem; font-style: italic; padding: 1rem 2.5rem; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 1.5rem; letter-spacing: 0.03em; transition: background 0.2s, transform 0.1s; }
+  .submit-btn:hover { background: #2e2418; }
+  .submit-btn:active { transform: scale(0.99); }
+
+  .success-msg { display: none; background: #f0f7ee; border: 1px solid #b8d9b0; border-radius: 10px; padding: 2rem; text-align: center; margin-top: 1rem; }
+  .success-msg.on { display: block; }
+  .success-msg .check { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .success-msg h3 { font-family: 'Playfair Display', serif; font-weight: 400; font-size: 1.4rem; margin-bottom: 0.4rem; }
+  .success-msg p { font-size: 0.88rem; color: #5a7a52; line-height: 1.6; }
+  .success-msg button { margin-top: 1.25rem; background: var(--ink); color: var(--gold-light); border: none; padding: 0.65rem 1.75rem; border-radius: 6px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; }
+
+  /* ADMIN */
+  .admin-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+  .admin-header h1 { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 400; }
+  .admin-header .subtitle { font-size: 0.82rem; color: #8a7a62; margin-top: 2px; }
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+  @media(max-width:600px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: #8a7a62; margin-bottom: 0.3rem; }
+  .stat-num { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 400; line-height: 1; }
+  .stat-num.c-new { color: var(--rust); } .stat-num.c-wip { color: #c8882e; } .stat-num.c-done { color: var(--sage); }
+  .filter-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-btn { background: var(--card); border: 1px solid var(--border); border-radius: 99px; padding: 0.35rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; color: #6a5a42; }
+  .filter-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .filter-btn.active { background: var(--ink); color: var(--gold-light); border-color: var(--ink); }
+  .orders-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .order-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: box-shadow 0.2s; }
+  .order-card:hover { box-shadow: 0 4px 16px var(--shadow); }
+  .order-card-head { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; user-select: none; }
+  .onum { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--gold); flex-shrink: 0; min-width: 3.5rem; }
+  .oinfo { flex: 1; min-width: 0; }
+  .oname { font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ometa { font-size: 0.78rem; color: #8a7a62; margin-top: 1px; }
+  .sbadge { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.25rem 0.75rem; border-radius: 99px; flex-shrink: 0; }
+  .s-nuovo { background: #fce8e0; color: #a03820; } .s-wip { background: #fef3e0; color: #9e6010; } .s-done { background: #eaf4e8; color: #3a7030; }
+  .ochev { color: var(--border); font-size: 0.8rem; transition: transform 0.2s; flex-shrink: 0; }
+  .order-card.open .ochev { transform: rotate(180deg); }
+  .odetail { display: none; padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--border); }
+  .order-card.open .odetail { display: block; }
+  .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.5rem; margin-bottom: 1rem; }
+  @media(max-width:500px) { .dgrid { grid-template-columns: 1fr; } }
+  .dkey { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8a7a62; margin-bottom: 2px; }
+  .dval { font-size: 0.88rem; }
+  .prods-summary { background: var(--warm); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.85rem; }
+  .prods-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6a5a42; margin-bottom: 0.6rem; font-weight: 500; }
+  .prow { font-size: 0.85rem; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.07); }
+  .prow:last-child { border: none; }
+  .prow-imgs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .prow-imgs span { background: rgba(200,169,110,0.2); border-radius: 3px; padding: 2px 7px; font-size: 0.72rem; color: #6a5a42; }
+  .ssel-row { display: flex; align-items: center; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .ssel-row label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8a7a62; }
+  .ssel { background: var(--cream); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; cursor: pointer; color: var(--ink); outline: none; }
+  .del-btn { margin-left: auto; background: none; border: 1px solid #e8c8bc; color: var(--rust); font-size: 0.78rem; padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+  .del-btn:hover { background: #fce8e0; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #a09080; }
+  .empty-state .eicon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .empty-state p { font-size: 0.88rem; }
+  .export-btn { background: none; border: 1px solid var(--border); color: #6a5a42; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; padding: 0.45rem 1rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.15s; }
+  .export-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .admin-lock-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem; text-align: center; max-width: 380px; margin: 3rem auto; }
+  .admin-lock-wrap h2 { font-family: 'Playfair Display', serif; font-weight: 400; margin-bottom: 0.4rem; }
+  .admin-lock-wrap p { font-size: 0.82rem; color: #8a7a62; margin-bottom: 1.5rem; }
+  .admin-lock-wrap input { background: var(--cream); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; width: 100%; margin-bottom: 0.75rem; outline: none; color: var(--ink); }
+  .admin-lock-wrap button { background: var(--ink); color: var(--gold-light); border: none; padding: 0.65rem 2rem; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; cursor: pointer; width: 100%; }
+  .lock-hint { font-size: 0.75rem; color: #aaa; margin-top: 0.75rem; }
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--ink); color: var(--gold-light); padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.85rem; font-family: 'DM Sans', sans-serif; box-shadow: 0 4px 20px rgba(0,0,0,0.25); transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 999; pointer-events: none; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">B1PIU'8 <small>di Biffi Davide</small></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('form')">Nuovo Ordine</button>
+    <button class="nav-tab" onclick="showAdminGate()">Admin <span class="nav-badge" id="newBadge" style="display:none">0</span></button>
+  </div>
+</nav>
+
+<!-- FORM PAGE -->
+<div class="page active" id="formPage">
+  <div class="form-header">
+    <h1>B1PIU'8 di Biffi Davide</h1>
+    <div class="intro-box">
+      <p>Dopo aver completato questa richiesta di ordine, la progettazione grafica inizierà appena possibile. Ti invieremo un'anteprima del lavoro finito per <strong>conferma prima di procedere con la stampa e confezione</strong>.</p>
+      <p>Per la consegna serviranno dai 20 ai 40 gg circa, in base alla disponibilità dei fornitori.<br>Nei periodi di maggiore richiesta l'attesa può aumentare.</p>
+      <p>Tutti i prodotti sono al 100% <strong>made in Italy</strong>.</p>
+      <p>Appena pronti vi contatteremo per comunicarvi i dati per il pagamento e procedere alla spedizione.</p>
+      <p class="intro-warning">⚠ <strong>ATTENZIONE:</strong> è fondamentale inserire tutte le informazioni richieste per consentirci di velocizzare la preparazione del tuo ordine.</p>
+    </div>
+    <p class="req-note">I campi con <span style="color:var(--rust)">*</span> sono obbligatori</p>
+  </div>
+
+  <div class="form-grid" id="orderForm">
+
+    <div class="section-title">Dati cliente</div>
+    <div class="form-row">
+      <div class="field">
+        <label>Nome e cognome <span class="req">*</span></label>
+        <input type="text" id="f_nome" placeholder="Mario Rossi">
+        <span class="err" id="e_nome">Campo obbligatorio</span>
+      </div>
+      <div class="field">
+        <label>Email <span class="req">*</span></label>
+        <input type="email" id="f_email" placeholder="mario@email.com">
+        <span class="err" id="e_email">Inserisci un'email valida</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field" style="max-width:340px">
+        <label>Telefono</label>
+        <input type="tel" id="f_telefono" placeholder="+39 333 000 0000">
+      </div>
+      <div class="field" style="max-width:340px">
+        <label>Dove mi hai contattato? <span class="req">*</span></label>
+        <select id="f_canale">
+          <option value="">— Seleziona —</option>
+          <option value="Instagram">Instagram</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Email">Email</option>
+          <option value="WhatsApp">WhatsApp</option>
+        </select>
+        <span class="err" id="e_canale">Campo obbligatorio</span>
+      </div>
+    </div>
+
+    <div class="section-title">Indirizzo di spedizione</div>
+    <div class="form-row">
+      <div class="field">
+        <label>Nome di riferimento / Ditta <span class="req">*</span></label>
+        <input type="text" id="f_ditta" placeholder="Es. Rossi Sport S.r.l.">
+        <span class="err" id="e_ditta">Campo obbligatorio</span>
+      </div>
+      <div class="field">
+        <label>Alla cortese att.ne di...</label>
+        <input type="text" id="f_attne" placeholder="Es. Mario Rossi">
+      </div>
+    </div>
+    <div class="field">
+      <label>Via e numero civico <span class="req">*</span></label>
+      <input type="text" id="f_via" placeholder="Via Roma 12">
+      <span class="err" id="e_via">Campo obbligatorio</span>
+    </div>
+    <div class="form-row three">
+      <div class="field">
+        <label>CAP <span class="req">*</span></label>
+        <input type="text" id="f_cap" placeholder="20100" maxlength="5">
+        <span class="err" id="e_cap">Campo obbligatorio</span>
+      </div>
+      <div class="field">
+        <label>Città <span class="req">*</span></label>
+        <input type="text" id="f_citta" placeholder="Milano">
+        <span class="err" id="e_citta">Campo obbligatorio</span>
+      </div>
+      <div class="field">
+        <label>Provincia</label>
+        <input type="text" id="f_prov" placeholder="MI" maxlength="2">
+      </div>
+    </div>
+
+    <div class="section-title">
+      Prodotti ordinati
+      <span class="section-subtitle">— aggiungi uno o più articoli</span>
+    </div>
+    <div id="prodsContainer">
+      <div class="no-prods" id="noProdsMsg">Nessun prodotto aggiunto ancora — clicca il pulsante qui sotto per iniziare</div>
+    </div>
+    <button class="add-product-btn" onclick="addProduct()">+ Aggiungi articolo</button>
+    <button class="add-product-btn" onclick="openConfigurator()" style="background:var(--sage);border-color:var(--sage);color:#fff;margin-left:0.5rem">🎨 Apri Configuratore 3D</button>
+    <span class="err" id="e_prods" style="font-size:0.8rem;display:none">Aggiungi almeno un prodotto per procedere</span>
+
+    <!-- Modal Configuratore -->
+    <div id="configurator-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;background:#0d0d18;border-bottom:1px solid rgba(255,255,255,0.1)">
+        <span style="color:#e4e4f0;font-size:0.9rem;font-family:'DM Sans',sans-serif;letter-spacing:0.05em">Configuratore 3D — B1PIÙ8</span>
+        <button onclick="closeConfigurator()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e4e4f0;padding:0.3rem 0.9rem;border-radius:6px;cursor:pointer;font-size:0.85rem">✕ Chiudi</button>
+      </div>
+      <iframe id="configurator-frame" src="configuratore.html" style="flex:1;border:none;width:100%;height:100%"></iframe>
+    </div>
+
+    <script>
+      function openConfigurator() {
+        const m = document.getElementById('configurator-modal');
+        m.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+      function closeConfigurator() {
+        const m = document.getElementById('configurator-modal');
+        m.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+    </script>
+
+    <div class="section-title">Note aggiuntive</div>
+    <div class="field">
+      <label>Istruzioni speciali o richieste</label>
+      <textarea id="f_note" placeholder="Indicazioni su colori, materiali, istruzioni di consegna..."></textarea>
+    </div>
+
+    <div class="section-title">Dati fatturazione</div>
+    <div class="toggle-row">
+      <button class="toggle" id="fattToggle" onclick="toggleFatt()"></button>
+      <span class="toggle-label">Richiedo fattura</span>
+    </div>
+    <div class="fatt-fields" id="fattFields">
+      <div class="form-row">
+        <div class="field">
+          <label>Ragione sociale / Nome <span class="req">*</span></label>
+          <input type="text" id="f_ragione" placeholder="Azienda Srl">
+          <span class="err" id="e_ragione">Campo obbligatorio</span>
+        </div>
+        <div class="field">
+          <label>P. IVA / Cod. Fiscale <span class="req">*</span></label>
+          <input type="text" id="f_piva" placeholder="IT00000000000">
+          <span class="err" id="e_piva">Campo obbligatorio</span>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:0.75rem">
+        <div class="field"><label>Indirizzo fatturazione</label><input type="text" id="f_fvia" placeholder="Via Fatture 1"></div>
+        <div class="field"><label>Codice SDI / PEC</label><input type="text" id="f_sdi" placeholder="Codice SDI o PEC"></div>
+      </div>
+    </div>
+
+    <div class="error-banner" id="errBanner">⚠ Correggi i campi evidenziati prima di inviare l'ordine.</div>
+    <button class="submit-btn" onclick="submitOrder()">✦ Invia ordine</button>
+  </div>
+
+  <div class="success-msg" id="successMsg">
+    <div class="check">✅</div>
+    <h3>Ordine ricevuto!</h3>
+    <p id="successText"></p>
+    <button onclick="resetForm()">Nuovo ordine</button>
+  </div>
+</div>
+
+<!-- ADMIN PAGE -->
+<div class="page" id="adminPage">
+  <div id="lockScreen">
+    <div class="admin-lock-wrap">
+      <div style="font-size:2rem;margin-bottom:0.75rem">🔒</div>
+      <h2>Area Admin</h2>
+      <p>Inserisci la password per accedere alla gestione ordini</p>
+      <input type="password" id="adminPwd" placeholder="Password" onkeydown="if(event.key==='Enter')checkPwd()">
+      <button onclick="checkPwd()">Accedi</button>
+      <p class="lock-hint"></p>
+    </div>
+  </div>
+  <div id="dashboard" style="display:none">
+    <div class="admin-header">
+      <div><h1>Gestione Ordini</h1><div class="subtitle" id="adminDate"></div></div>
+      <button class="export-btn" onclick="exportCSV()">⬇ Esporta CSV</button>
+    </div>
+    <div class="stats-row" id="statsRow"></div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('tutti',this)">Tutti</button>
+      <button class="filter-btn" onclick="setFilter('Nuovo',this)">Nuovi</button>
+      <button class="filter-btn" onclick="setFilter('In lavorazione',this)">In lavorazione</button>
+      <button class="filter-btn" onclick="setFilter('Completato',this)">Completati</button>
+    </div>
+    <div class="orders-list" id="ordersList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CATALOGUE = [
+  "Pantaloncino DNA","Pantaloncino MINÙ","Pantaloncino tasche SHAQ",
+  "Top CARACAS","Top BEVERLY",
+  "Maglia Volley Uomo IVAN","Maglia Volley Uomo MATT","Maglia Volley Uomo EARVIN",
+  "Maglia Volley Donna ROBIN","Maglia Volley Donna TAI","Maglia Volley Donna LEO",
+  "Maglia Volley Donna HANNA","Maglia Volley Donna MOKI",
+  "Pantaloncino Volley Donna BERE","Pantaloncino Volley Donna ASIA",
+  "Manicotti OCTOPUS",
+  "Canotta Uomo KIRALY","Canotta Uomo REGO","Canotta Uomo PHIL",
+  "Canotta Donna ELLE",
+  "Leggins Uomo TOBAGO","Leggins Donna ARENAS",
+  "Canotta Basket Uomo KAREEM / JAMES","Canotta Basket Uomo LARRY / MAGIC",
+  "Canotta Basket Donna TIM / KARL","Canotta Basket Donna KEVIN / CHARLES"
+];
+const SIZES = ["XXS","XS","S","M","L","XL","XXL","3XL","4XL","Allego elenco"];
+
+let orders = [];
+let counter = 0; // will be set from Supabase
+let prods = [];
+let filterState = 'tutti';
+let adminOk = false;
+
+function saveOrders() {
+  localStorage.setItem('b1p8_orders', JSON.stringify(orders));
+  localStorage.setItem('b1p8_counter', String(counter));
+  updateBadge();
+}
+function updateBadge() {
+  const n = orders.filter(o => o.status === 'Nuovo').length;
+  const b = document.getElementById('newBadge');
+  b.style.display = n ? '' : 'none'; b.textContent = n;
+}
+
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
+  document.getElementById(p+'Page').classList.add('active');
+  document.querySelectorAll('.nav-tab')[p==='form'?0:1].classList.add('active');
+}
+function showAdminGate() { showPage('admin'); if (adminOk) loadOrdersFromSupabase(); }
+function checkPwd() {
+  if (document.getElementById('adminPwd').value === '916sps') {
+    adminOk = true;
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadOrdersFromSupabase();
+  } else { showToast('❌ Password errata'); document.getElementById('adminPwd').value = ''; }
+}
+
+// ---- PRODUCTS ----
+function addProduct() {
+  document.getElementById('noProdsMsg').style.display = 'none';
+  document.getElementById('e_prods').style.display = 'none';
+  const id = Date.now();
+  prods.push({ id, files: [] });
+  const n = prods.length;
+
+  const catOpts = CATALOGUE.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const sizeOpts = SIZES.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  const el = document.createElement('div');
+  el.className = 'product-item'; el.id = 'prod_'+id;
+  el.innerHTML = `
+    <div class="prod-header">
+      <span class="prod-num">Articolo ${n}</span>
+      <button class="remove-btn" onclick="removeProd(${id})">✕ Rimuovi</button>
+    </div>
+    <div class="form-row" style="margin-bottom:0.75rem">
+      <div class="field">
+        <label>Prodotto <span class="req">*</span></label>
+        <select id="pn_${id}">
+          <option value="">— Seleziona articolo —</option>
+          ${catOpts}
+        </select>
+        <span class="err" id="en_${id}">Seleziona un prodotto</span>
+      </div>
+      <div class="field">
+        <label>Taglia <span class="req">*</span></label>
+        <select id="pt_${id}">
+          <option value="">— Seleziona taglia —</option>
+          ${sizeOpts}
+        </select>
+        <span class="err" id="et_${id}">Seleziona una taglia</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Quantità <span class="req">*</span></label>
+        <input type="number" id="pq_${id}" min="1" value="1">
+        <span class="err" id="eq_${id}">Inserisci una quantità valida</span>
+      </div>
+      <div class="field">
+        <label>Colore / variante</label>
+        <input type="text" id="pc_${id}" placeholder="Es. Blu navy, Rosso...">
+      </div>
+    </div>
+    <div class="prod-upload" style="margin-top:0.9rem">
+      <span class="prod-upload-label">Immagini di personalizzazione per questo articolo</span>
+      <div class="prod-upload-area">
+        <input type="file" accept="image/*,.pdf" multiple onchange="handleFiles(${id},this)">
+        <span class="uicon">🖼</span>
+        <p><strong>Carica immagini</strong> — JPG, PNG, PDF — nessun limite di numero</p>
+      </div>
+      <div class="prod-preview" id="pv_${id}"></div>
+    </div>`;
+  document.getElementById('prodsContainer').appendChild(el);
+  document.getElementById('e_prods').classList.remove('on');
+}
+
+function removeProd(id) {
+  prods = prods.filter(p => p.id !== id);
+  document.getElementById('prod_'+id)?.remove();
+  document.querySelectorAll('.prod-num').forEach((el,i) => el.textContent = 'Articolo '+(i+1));
+  if (!prods.length) document.getElementById('noProdsMsg').style.display = '';
+}
+
+function handleFiles(id, input) {
+  const p = prods.find(x => x.id === id);
+  if (!p) return;
+  p.files = Array.from(input.files);
+  const pv = document.getElementById('pv_'+id);
+  pv.innerHTML = '';
+  p.files.forEach(f => {
+    if (f.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'thumb'; img.src = URL.createObjectURL(f); pv.appendChild(img);
+    } else {
+      const c = document.createElement('div');
+      c.className = 'fchip'; c.textContent = '📄 '+f.name; pv.appendChild(c);
+    }
+  });
+  const area = document.querySelector('#prod_'+id+' .prod-upload-area p');
+  if (area) area.innerHTML = `<strong>${p.files.length} file allegato${p.files.length!==1?'i':''}</strong> — clicca per aggiungerne altri`;
+}
+
+function collectProds() {
+  return prods.map(p => ({
+    nome: document.getElementById('pn_'+p.id)?.value||'',
+    taglia: document.getElementById('pt_'+p.id)?.value||'',
+    qta: document.getElementById('pq_'+p.id)?.value||'1',
+    colore: document.getElementById('pc_'+p.id)?.value||'',
+    immagini: p.files.map(f=>f.name),
+  }));
+}
+
+function toggleFatt() {
+  document.getElementById('fattToggle').classList.toggle('on');
+  document.getElementById('fattFields').classList.toggle('on');
+}
+
+// ---- VALIDATION ----
+function fe(fid, eid, show) {
+  const el = document.getElementById(fid); const er = document.getElementById(eid);
+  if (!el||!er) return;
+  el.classList.toggle('error', show); er.classList.toggle('on', show);
+}
+
+function validate() {
+  let ok = true;
+  const nome = document.getElementById('f_nome').value.trim();
+  fe('f_nome','e_nome',!nome); if(!nome) ok=false;
+  const canale = document.getElementById('f_canale').value;
+  fe('f_canale','e_canale',!canale); if(!canale) ok=false;
+  const email = document.getElementById('f_email').value.trim();
+  const eok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  fe('f_email','e_email',!eok); if(!eok) ok=false;
+  const ditta = document.getElementById('f_ditta').value.trim();
+  fe('f_ditta','e_ditta',!ditta); if(!ditta) ok=false;
+  const via = document.getElementById('f_via').value.trim();
+  fe('f_via','e_via',!via); if(!via) ok=false;
+  const cap = document.getElementById('f_cap').value.trim();
+  fe('f_cap','e_cap',!cap); if(!cap) ok=false;
+  const citta = document.getElementById('f_citta').value.trim();
+  fe('f_citta','e_citta',!citta); if(!citta) ok=false;
+
+  if (!prods.length) { 
+    document.getElementById('e_prods').style.display = 'block';
+    ok=false; 
+  } else {
+    document.getElementById('e_prods').style.display = 'none';
+    prods.forEach(p => {
+      const pn = document.getElementById('pn_'+p.id)?.value||'';
+      const pt = document.getElementById('pt_'+p.id)?.value||'';
+      const pq = parseInt(document.getElementById('pq_'+p.id)?.value||'0');
+      fe('pn_'+p.id,'en_'+p.id,!pn); if(!pn) ok=false;
+      fe('pt_'+p.id,'et_'+p.id,!pt); if(!pt) ok=false;
+      fe('pq_'+p.id,'eq_'+p.id,!pq||pq<1); if(!pq||pq<1) ok=false;
+    });
+  }
+
+  if (document.getElementById('fattToggle').classList.contains('on')) {
+    const r = document.getElementById('f_ragione').value.trim();
+    fe('f_ragione','e_ragione',!r); if(!r) ok=false;
+    const pv = document.getElementById('f_piva').value.trim();
+    fe('f_piva','e_piva',!pv); if(!pv) ok=false;
+  }
+
+  const banner = document.getElementById('errBanner');
+  if (!ok) { banner.classList.add('on'); setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'nearest'}),50); }
+  else banner.classList.remove('on');
+  return ok;
+}
+
+const SUPABASE_URL = 'https://uhuldfqetuhuojdniyud.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVodWxkZnFldHVodW9qZG5peXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMTk2NjMsImV4cCI6MjA4ODg5NTY2M30.GeLW_KbTX1PU1Hbyhoz3YSIrdvnV5jFx3ejLswKOTKg';
+
+async function uploadImages(orderId, prodIndex, files) {
+  const urls = [];
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi];
+    const ext = file.name.split('.').pop();
+    const path = `${orderId}/prod${prodIndex}_${fi}_${Date.now()}.${ext}`;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${path}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'true',
+        },
+        body: file,
+      });
+      if (res.ok) {
+        urls.push(`${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${path}`);
+      } else {
+        console.warn('Upload fallito per', file.name, await res.text());
+      }
+    } catch(err) {
+      console.warn('Errore upload', file.name, err);
+    }
+  }
+  return urls;
+}
+
+async function submitOrder() {
+  if (!validate()) return;
+
+  const btn = document.querySelector('.submit-btn');
+  btn.textContent = '⏳ Invio in corso...';
+  btn.disabled = true;
+
+  // Get next order number from Supabase (count of existing orders + 1)
+  try {
+    const cntRes = await fetch(`${SUPABASE_URL}/rest/v1/ordini?select=id`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'count=exact' }
+    });
+    const total = parseInt(cntRes.headers.get('content-range')?.split('/')[1] || '0');
+    counter = total + 1;
+  } catch(e) { counter++; }
+  const orderId = String(counter).padStart(4,'0');
+  const hasFatt = document.getElementById('fattToggle').classList.contains('on');
+  const prodotti = collectProds();
+
+  // Upload images for each product
+  btn.textContent = '⏳ Caricamento immagini...';
+  for (let i = 0; i < prods.length; i++) {
+    if (prods[i].files && prods[i].files.length > 0) {
+      const urls = await uploadImages(orderId, i, prods[i].files);
+      prodotti[i].immagini_urls = urls;
+    }
+  }
+
+  const order = {
+    id: counter,
+    date: new Date().toISOString(),
+    status: 'Nuovo',
+    cliente: {
+      nome: document.getElementById('f_nome').value.trim(),
+      email: document.getElementById('f_email').value.trim(),
+      telefono: document.getElementById('f_telefono').value.trim(),
+      canale: document.getElementById('f_canale').value,
+    },
+    spedizione: {
+      ditta: document.getElementById('f_ditta').value.trim(),
+      attne: document.getElementById('f_attne').value.trim(),
+      via: document.getElementById('f_via').value.trim(),
+      cap: document.getElementById('f_cap').value.trim(),
+      citta: document.getElementById('f_citta').value.trim(),
+      provincia: document.getElementById('f_prov').value.trim(),
+    },
+    prodotti,
+    note: document.getElementById('f_note').value.trim(),
+    fatturazione: hasFatt ? {
+      ragione: document.getElementById('f_ragione').value.trim(),
+      piva: document.getElementById('f_piva').value.trim(),
+      via: document.getElementById('f_fvia').value.trim(),
+      sdi: document.getElementById('f_sdi').value.trim(),
+    } : null,
+  };
+
+  // Save to Supabase
+  btn.textContent = '⏳ Salvataggio ordine...';
+  try {
+    const payload = {
+      numero: '#' + orderId,
+      data: new Date(order.date).toLocaleString('it-IT'),
+      nome: order.cliente.nome,
+      email: order.cliente.email,
+      telefono: order.cliente.telefono,
+      canale: order.cliente.canale||'',
+      ditta: order.spedizione.ditta,
+      attne: order.spedizione.attne,
+      via: order.spedizione.via,
+      cap: order.spedizione.cap,
+      citta: order.spedizione.citta,
+      provincia: order.spedizione.provincia,
+      articoli: JSON.stringify(prodotti),
+      note: order.note,
+      fattura: order.fatturazione ? JSON.stringify(order.fatturazione) : null,
+      stato: 'Nuovo',
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.warn('Errore Supabase:', err);
+    }
+  } catch(err) {
+    console.warn('Errore invio:', err);
+  }
+
+  orders.unshift(order);
+  saveOrders();
+
+  btn.textContent = '✦ Invia ordine';
+  btn.disabled = false;
+
+  document.getElementById('orderForm').style.display = 'none';
+  document.getElementById('successMsg').classList.add('on');
+  document.getElementById('successText').innerHTML =
+    `Grazie <strong>${order.cliente.nome}</strong>! Il tuo ordine <strong>#${orderId}</strong> è stato ricevuto.`;
+}
+
+function resetForm() {
+  document.getElementById('orderForm').style.display = 'block';
+  document.getElementById('successMsg').classList.remove('on');
+  document.getElementById('prodsContainer').innerHTML =
+    '<div class="no-prods" id="noProdsMsg">Nessun prodotto aggiunto ancora — clicca il pulsante qui sotto per iniziare</div>';
+  prods = [];
+  ['f_nome','f_email','f_telefono','f_canale','f_ditta','f_attne','f_via','f_cap','f_citta','f_prov','f_note','f_ragione','f_piva','f_fvia','f_sdi']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('fattToggle').classList.remove('on');
+  document.getElementById('fattFields').classList.remove('on');
+  document.getElementById('errBanner').classList.remove('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ---- DASHBOARD ----
+async function loadOrdersFromSupabase() {
+  const list = document.getElementById('ordersList');
+  list.innerHTML = '<div class="empty-state"><div class="eicon">⏳</div><p>Caricamento ordini...</p></div>';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini?select=*&order=created_at.desc`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      }
+    });
+    const data = await res.json();
+    orders = data.map(row => {
+      let prodotti = [];
+      try { prodotti = JSON.parse(row.articoli || '[]'); } catch(e) { prodotti = []; }
+      let fatturazione = null;
+      try { if(row.fattura) fatturazione = JSON.parse(row.fattura); } catch(e) {}
+      return {
+        _id: row.id,
+        id: row.id,
+        numero: row.numero || ('#'+String(row.id).padStart(4,'0')),
+        date: row.created_at,
+        status: row.stato || 'Nuovo',
+        cliente: { nome: row.nome||'', email: row.email||'', telefono: row.telefono||'', canale: row.canale||'' },
+        spedizione: { ditta: row.ditta||'', attne: row.attne||'', via: row.via||'', cap: row.cap||'', citta: row.citta||'', provincia: row.provincia||'' },
+        prodotti,
+        note: row.note||'',
+        fatturazione,
+      };
+    });
+  } catch(e) {
+    console.error('Errore caricamento:', e);
+    orders = [];
+  }
+  renderDash();
+}
+
+function renderDash() {
+  document.getElementById('adminDate').textContent =
+    new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const total=orders.length, nuovi=orders.filter(o=>o.status==='Nuovo').length,
+    wip=orders.filter(o=>o.status==='In lavorazione').length,
+    done=orders.filter(o=>o.status==='Completato').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Totale</div><div class="stat-num">${total}</div></div>
+    <div class="stat-card"><div class="stat-label">Nuovi</div><div class="stat-num c-new">${nuovi}</div></div>
+    <div class="stat-card"><div class="stat-label">In lavorazione</div><div class="stat-num c-wip">${wip}</div></div>
+    <div class="stat-card"><div class="stat-label">Completati</div><div class="stat-num c-done">${done}</div></div>`;
+
+  const filtered = filterState==='tutti' ? orders : orders.filter(o=>o.status===filterState);
+  const list = document.getElementById('ordersList');
+  if (!filtered.length) {
+    list.innerHTML=`<div class="empty-state"><div class="eicon">📭</div><p>Nessun ordine${filterState!=='tutti'?' con questo stato':''}.</p></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(o => {
+    const num = o.numero || ('#'+String(o.id).padStart(4,'0'));
+    const d = new Date(o.date);
+    const ds = d.toLocaleDateString('it-IT')+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    const bc = {'Nuovo':'s-nuovo','In lavorazione':'s-wip','Completato':'s-done'}[o.status]||'';
+    const ph = o.prodotti.map(p=>{
+      const imgs = p.immagini_urls?.length
+        ? `<div class="prow-imgs">${p.immagini_urls.map(url=>`<a href="${url}" target="_blank" download style="margin-right:6px"><img src="${url}" style="height:64px;border-radius:6px;cursor:pointer;border:2px solid #e2d9c8" title="Clicca per aprire"></a>`).join('')}</div>`
+        : (p.immagini?.length ? `<div class="prow-imgs">${p.immagini.map(i=>`<span>🖼 ${i}</span>`).join('')}</div>` : '');
+      return `<div class="prow">
+        <strong>${p.nome||'—'}</strong> — Taglia: <strong>${p.taglia||'—'}</strong> — Qtà: <strong>${p.qta}</strong>${p.colore?' — '+p.colore:''}
+        ${imgs}
+      </div>`;
+    }).join('');
+    const fh = o.fatturazione?`
+      <div style="grid-column:1/-1"><div class="dkey">Fatturazione</div>
+      <div class="dval">${o.fatturazione.ragione} — P.IVA: ${o.fatturazione.piva}${o.fatturazione.sdi?' — SDI: '+o.fatturazione.sdi:''}</div></div>`:'';
+    return `<div class="order-card" id="c_${o.id}">
+      <div class="order-card-head" onclick="toggleCard(${o.id})">
+        <div class="onum">${num}</div>
+        <div class="oinfo">
+          <div class="oname">${o.cliente.nome}</div>
+          <div class="ometa">${ds} · ${o.prodotti.length} articolo${o.prodotti.length!==1?'i':''}</div>
+        </div>
+        <span class="sbadge ${bc}">${o.status}</span>
+        <span class="ochev">▼</span>
+      </div>
+      <div class="odetail">
+        <div class="dgrid">
+          <div><div class="dkey">Email</div><div class="dval">${o.cliente.email}</div></div>
+          <div><div class="dkey">Telefono</div><div class="dval">${o.cliente.telefono||'—'}</div></div>
+          <div><div class="dkey">Canale</div><div class="dval">${o.cliente.canale||'—'}</div></div>
+          <div style="grid-column:1/-1"><div class="dkey">Spedizione</div>
+            <div class="dval">${o.spedizione.ditta||''}${o.spedizione.attne?' — Att.ne: '+o.spedizione.attne:''}<br>${o.spedizione.via}, ${o.spedizione.cap} ${o.spedizione.citta}${o.spedizione.provincia?' ('+o.spedizione.provincia+')':''}</div></div>
+          ${fh}
+        </div>
+        <div class="prods-summary"><div class="prods-title">Articoli ordinati</div>${ph}</div>
+        ${o.note?`<div style="margin-bottom:0.85rem"><div class="dkey">Note</div><div class="dval" style="font-size:0.88rem;margin-top:3px">${o.note}</div></div>`:''}
+        <div class="ssel-row">
+          <label>Stato</label>
+          <select class="ssel" onchange="updateStatus(${o.id},this.value)">
+            <option ${o.status==='Nuovo'?'selected':''}>Nuovo</option>
+            <option ${o.status==='In lavorazione'?'selected':''}>In lavorazione</option>
+            <option ${o.status==='Completato'?'selected':''}>Completato</option>
+          </select>
+          <button class="del-btn" onclick="delOrder(${o.id})">🗑 Elimina</button>
+          <button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem" onclick="exportSingleCSV(${o.id})">⬇ CSV</button>
+          <button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem;background:#7a8c6e;color:white;border:none" onclick="downloadAllImages(${o.id})">🖼 Scarica immagini</button>
+          ${o.prodotti.some(p=>p.immagini_urls?.length) ? `<button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem;background:#7a8c6e;color:white;border-color:#7a8c6e" onclick="downloadAllImages(${o.id})">🖼 Scarica immagini</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id) { document.getElementById('c_'+id)?.classList.toggle('open'); }
+function setFilter(f,btn) { filterState=f; document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderDash(); }
+
+async function updateStatus(id, s) {
+  const o = orders.find(x=>x.id===id);
+  if (!o) return;
+  o.status = s;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/ordini?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ stato: s }),
+    });
+  } catch(e) { console.warn('Errore aggiornamento stato:', e); }
+  renderDash();
+  showToast('✓ Stato aggiornato');
+}
+
+async function delOrder(id) {
+  if (!confirm('Eliminare questo ordine?')) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/ordini?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      }
+    });
+  } catch(e) { console.warn('Errore eliminazione:', e); }
+  orders = orders.filter(x=>x.id!==id);
+  renderDash();
+  showToast('🗑 Ordine eliminato');
+}
+
+async function downloadAllImages(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const urls = o.prodotti.flatMap(p => p.immagini_urls || []);
+  if (!urls.length) { showToast('Nessuna immagine disponibile'); return; }
+  showToast('⏳ Download in corso...');
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    const ext = url.split('.').pop().split('?')[0];
+    const nome = o.cliente.nome.toLowerCase().replace(/\s+/g, '-');
+    const num = (o.numero || '#'+String(o.id).padStart(4,'0')).replace('#','');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ordine-${num}-${nome}-img${i+1}.${ext}`;
+    a.target = '_blank';
+    a.click();
+    await new Promise(r => setTimeout(r, 300));
+  }
+  showToast(`📥 ${urls.length} immagini scaricate`);
+}
+
+async function downloadAllImages(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const allUrls = o.prodotti.flatMap(p => p.immagini_urls || []);
+  if (!allUrls.length) { showToast('Nessuna immagine per questo ordine'); return; }
+  showToast('⏳ Download in corso...');
+  const nome = (o.cliente.nome||'ordine').toLowerCase().replace(/\s+/g,'-');
+  const num = (o.numero||'').replace('#','');
+  for (let i = 0; i < allUrls.length; i++) {
+    try {
+      const url = allUrls[i];
+      const ext = url.split('.').pop().split('?')[0] || 'jpg';
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `ordine-${num}-${nome}-img${i+1}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      await new Promise(r => setTimeout(r, 600));
+    } catch(err) {
+      console.warn('Errore download immagine', i, err);
+    }
+  }
+  showToast('✅ Download completato!');
+}
+
+function exportSingleCSV(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const numRaw = o.numero || ('#'+String(o.id).padStart(4,'0'));
+  const numClean = numRaw.replace('#','').trim();
+  const nome = o.cliente.nome.toLowerCase().replace(/\s+/g,' ').trim();
+  const filename = `ordine-${numClean}-${nome}.csv`;
+  const rows = [['#','Data','Nome','Email','Telefono','Canale','Ditta','Att.ne','Via','CAP','Città','Provincia','Articoli','Note','Fattura','Stato']];
+  rows.push([
+    numRaw,
+    new Date(o.date).toLocaleString('it-IT'),
+    o.cliente.nome, o.cliente.email, o.cliente.telefono||'', o.cliente.canale||'',
+    o.spedizione.ditta||'', o.spedizione.attne||'',
+    o.spedizione.via, o.spedizione.cap, o.spedizione.citta, o.spedizione.provincia||'',
+    o.prodotti.map(p=>`${p.nome} tg.${p.taglia} x${p.qta}${p.colore?' ('+p.colore+')':''}`).join(' | '),
+    o.note||'',
+    o.fatturazione?`${o.fatturazione.ragione} - ${o.fatturazione.piva}`:'',
+    o.status
+  ]);
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = filename;
+  a.click();
+  showToast('📥 CSV scaricato');
+}
+
+function exportCSV() {
+  if(!orders.length){showToast('Nessun ordine da esportare');return;}
+  const rows=[['#','Data','Nome','Email','Telefono','Spedizione','Articoli','Note','Fattura','Stato']];
+  orders.forEach(o=>rows.push([
+    '#'+String(o.id).padStart(4,'0'),
+    new Date(o.date).toLocaleString('it-IT'),
+    o.cliente.nome,o.cliente.email,o.cliente.telefono||'',
+    `${o.spedizione.via}, ${o.spedizione.cap} ${o.spedizione.citta}`,
+    o.prodotti.map(p=>`${p.nome} tg.${p.taglia} x${p.qta}${p.colore?' ('+p.colore+')':''}`).join(' | '),
+    o.note||'',
+    o.fatturazione?`${o.fatturazione.ragione} - ${o.fatturazione.piva}`:'',
+    o.status
+  ]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='ordini_b1piu8_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); showToast('📥 CSV scaricato');
+}
+
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+updateBadge();
+</script>
+</body>
+</html>

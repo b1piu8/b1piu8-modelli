@@ -1,0 +1,1942 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuratore 3D — Abbigliamento Sportivo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0d0d18;
+      --panel:   #14141f;
+      --panel2:  #1c1c2b;
+      --panel3:  #242436;
+      --border:  rgba(255,255,255,0.07);
+      --accent:  #4f8ef7;
+      --accent2: #f59e0b;
+      --green:   #10b981;
+      --red:     #ef4444;
+      --text:    #e4e4f0;
+      --muted:   #6b6b90;
+      --r:       10px;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; overflow:hidden; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    header {
+      height: 50px; background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 18px; gap: 14px;
+      flex-shrink: 0; z-index: 20;
+    }
+    .brand { font-size:15px; font-weight:800; letter-spacing:2px; text-transform:uppercase; }
+    .brand em { color:var(--accent); font-style:normal; }
+    .divider { width:1px; height:22px; background:var(--border); }
+    header small { font-size:11px; color:var(--muted); letter-spacing:.8px; text-transform:uppercase; }
+    header .spacer { flex:1; }
+    .badge { font-size:10px; padding:3px 8px; background:rgba(79,142,247,.15); color:var(--accent); border:1px solid rgba(79,142,247,.3); border-radius:20px; letter-spacing:.5px; }
+
+    main { flex:1; display:flex; overflow:hidden; }
+
+    .sidebar { width:260px; flex-shrink:0; background:var(--panel); display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
+    .sidebar.left  { border-right:1px solid var(--border); }
+    .sidebar.right { border-left:1px solid var(--border); }
+
+    .sec { padding:14px 15px; border-bottom:1px solid var(--border); }
+    .sec-title { font-size:10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted); margin-bottom:11px; }
+
+    #viewer { flex:1; position:relative; background: radial-gradient(ellipse at 50% 40%, #1a1a30 0%, #0d0d18 70%); }
+    #c { width:100%; height:100%; display:block; cursor:grab; }
+    #c:active { cursor:grabbing; }
+
+    #loading { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg); z-index:10; gap:12px; }
+    .spinner { width:38px; height:38px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .75s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #loading p { font-size:12px; color:var(--muted); }
+
+    .hint { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.55); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:20px; padding:5px 14px; font-size:11px; color:var(--muted); white-space:nowrap; pointer-events:none; }
+
+    .error-box { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:var(--r); padding:10px 12px; font-size:11px; color:#f87171; line-height:1.5; margin-top:8px; }
+
+    select, input[type=text], input[type=email], input[type=number], textarea { width:100%; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r); color:var(--text); padding:7px 10px; font-size:12px; outline:none; transition:border-color .18s; }
+    select:focus, input:focus, textarea:focus { border-color:var(--accent); }
+    textarea { resize:vertical; min-height:60px; line-height:1.4; }
+    option { background:var(--panel2); }
+
+    label { display:block; font-size:10.5px; color:var(--muted); margin:9px 0 4px; }
+    label:first-of-type { margin-top:0; }
+
+    input[type=color] { width:36px; height:32px; padding:2px; background:var(--panel2); border:1px solid var(--border); border-radius:6px; cursor:pointer; }
+    .hex-row { display:flex; gap:6px; align-items:center; }
+    .hex-row input[type=text] { font-family:monospace; }
+
+    input[type=range] { -webkit-appearance:none; width:100%; height:4px; background:var(--panel3); border-radius:2px; outline:none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; background:var(--accent); border-radius:50%; cursor:pointer; }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 13px; border:none; border-radius:var(--r); font-size:12px; font-weight:600; cursor:pointer; letter-spacing:.3px; transition:all .18s; }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { background:#6ba3f9; }
+    .btn-secondary { background:var(--panel2); color:var(--text); border:1px solid var(--border); }
+    .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+    .btn-sm { padding:4px 9px; font-size:11px; }
+    .btn-danger { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.25); }
+    .btn-danger:hover { background:rgba(239,68,68,.22); }
+    .btn-export { background:linear-gradient(135deg,#10b981,#059669); color:#fff; width:100%; padding:11px; font-size:13px; letter-spacing:.5px; }
+    .btn-export:hover { opacity:.9; transform:translateY(-1px); box-shadow:0 4px 16px rgba(16,185,129,.35); }
+    .btn-full { width:100%; }
+
+    .zone-card { background:var(--panel2); border:2px solid var(--border); border-radius:var(--r); padding:10px 12px; margin-bottom:7px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:border-color .18s, background .18s; }
+    .zone-card:hover { border-color:rgba(79,142,247,.35); }
+    .zone-card.active { border-color:var(--accent); background:rgba(79,142,247,.07); }
+    .zone-swatch { width:28px; height:28px; border-radius:6px; border:2px solid rgba(255,255,255,.15); flex-shrink:0; }
+    .zone-info { flex:1; }
+    .zone-name { font-weight:700; font-size:12px; }
+    .zone-hex { font-size:10px; color:var(--muted); margin-top:2px; font-family:monospace; }
+    .zone-arrow { color:var(--muted); font-size:14px; }
+
+    .palette { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+    .pal-dot { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform .12s, border-color .12s; }
+    .pal-dot:hover { transform:scale(1.22); }
+    .pal-dot.sel { border-color:#fff; transform:scale(1.15); }
+
+    .tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .tab { flex:1; padding:10px 4px; text-align:center; cursor:pointer; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); border-bottom:2px solid transparent; transition:color .18s, border-color .18s; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+
+    .layer-item { background:var(--panel2); border:1px solid var(--border); border-radius:var(--r); padding:8px 10px; margin-bottom:5px; display:flex; align-items:center; gap:7px; }
+    .layer-item.layer-sel { border-color:var(--accent); background:rgba(79,142,247,.06); }
+    .layer-label { flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+    .layer-label:hover { color:var(--accent); }
+
+    .upload-area { border:2px dashed var(--border); border-radius:var(--r); padding:22px 14px; text-align:center; cursor:pointer; transition:border-color .18s; }
+    .upload-area:hover { border-color:var(--accent); }
+    .upload-area .icon { font-size:26px; margin-bottom:6px; }
+    .upload-area p { font-size:11px; color:var(--muted); line-height:1.5; }
+
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .toggle-row span { font-size:12px; }
+    .tog { width:34px; height:18px; background:var(--panel3); border-radius:9px; border:1px solid var(--border); cursor:pointer; position:relative; transition:background .18s; }
+    .tog.on { background:var(--accent); border-color:var(--accent); }
+    .tog::after { content:''; position:absolute; width:12px; height:12px; background:#fff; border-radius:50%; top:2px; left:2px; transition:left .18s; }
+    .tog.on::after { left:18px; }
+
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.08); border-radius:2px; }
+
+    .row2 { display:flex; gap:7px; }
+    .row2 > * { flex:1; }
+    .mt { margin-top:10px; }
+    .mt8 { margin-top:8px; }
+    .color-picker-panel { margin-top:12px; }
+    .cp-title { font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .cp-title span { color:var(--accent); }
+
+    /* ── layer panel ── */
+    .layer-row { display:flex; align-items:center; gap:5px; padding:6px 8px; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r); margin-bottom:5px; transition:border-color .15s; }
+    .layer-row.layer-sel { border-color:var(--accent); background:rgba(79,142,247,.06); }
+    .layer-row.layer-hidden { opacity:.45; }
+    .layer-name { flex:1; font-size:12px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .layer-name:hover { color:var(--accent); }
+    .layer-icon { width:22px; height:22px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; padding:0; }
+    .layer-icon:hover { color:var(--text); background:var(--panel3); }
+    .layer-icon.li-locked { color:var(--accent2); }
+    .layer-icon.li-hidden { color:var(--muted); }
+
+    /* ── overlay handles ── */
+    #overlay-handles { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5; }
+    #h-border { position:absolute; box-sizing:border-box; border:1.5px dashed rgba(79,142,247,.8); pointer-events:none; display:none; }
+    #h-scale, #h-rotate { position:absolute; width:18px; height:18px; border:2px solid #fff; box-sizing:border-box; display:none; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; pointer-events:all; line-height:1; z-index:6; }
+    #h-scale  { background:var(--accent);  border-radius:4px;  cursor:se-resize; }
+    #h-rotate { background:var(--accent2); border-radius:50%;  cursor:grab; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><em>B1PIÙ8</em> — Fai da te</div>
+  <div class="divider"></div>
+  <small>Configuratore 3D Professionale</small>
+  <div class="spacer"></div>
+  <div class="badge">v1.0</div>
+</header>
+
+<main>
+  <aside class="sidebar left">
+    <div class="sec">
+      <div class="sec-title">Modello</div>
+      <select id="sel-model">
+        <option value="Canotta ELLE.draco.glb">Canotta ELLE</option>
+        <option value="Canotta KIRALY.draco.glb">Canotta KIRALY</option>
+        <option value="Canotta PHIL.draco.glb">Canotta PHIL</option>
+        <option value="Canotta REGO.draco.glb">Canotta REGO</option>
+        <option value="Costume BRASILIA.draco.glb">Costume BRASILIA</option>
+        <option value="Costume HAVANA.draco.glb">Costume HAVANA</option>
+        <option value="Felpa WALLABY.draco.glb">Felpa WALLABY</option>
+        <option value="Leggins ARENAS.draco.glb">Leggins ARENAS</option>
+        <option value="Maglia HANNA.draco.glb">Maglia HANNA</option>
+        <option value="Maglia IVAN.draco.glb">Maglia IVAN</option>
+        <option value="Maglia LEO.draco.glb">Maglia LEO</option>
+        <option value="Maglia MATT.draco.glb">Maglia MATT</option>
+        <option value="Maglia MOKI.draco.glb">Maglia MOKI</option>
+        <option value="Maglia ROBIN.draco.glb">Maglia ROBIN</option>
+        <option value="Manicotti OCTOPUS.draco.glb">Manicotti OCTOPUS</option>
+        <option value="Panta ASIA.draco.glb">Panta ASIA</option>
+        <option value="Panta BERE.draco.glb">Panta BERE</option>
+        <option value="Panta DNA.draco.glb">Panta DNA</option>
+        <option value="Panta MINU.draco.glb">Panta MINU</option>
+        <option value="Panta SHAQ.draco.glb">Panta SHAQ</option>
+        <option value="Top BEVERLY.draco.glb">Top BEVERLY</option>
+        <option value="Top CARACAS.draco.glb">Top CARACAS</option>
+      </select>
+      <div class="mt8">
+        <button class="btn btn-secondary btn-full" id="btn-reset-cam">↺ Visuale</button>
+      </div>
+      <div id="model-error" class="error-box" style="display:none"></div>
+    </div>
+
+    <div class="sec" style="flex:1">
+      <div class="sec-title">Zone Colore</div>
+      <div class="toggle-row" style="margin-bottom:10px">
+        <span>Colora tutto</span><div class="tog" id="tog-color-all"></div>
+      </div>
+      <div id="zones-list"><p style="color:var(--muted);font-size:11px">Caricamento...</p></div>
+      <div class="color-picker-panel" id="cp-panel" style="display:none">
+        <div class="cp-title">Colora: <span id="cp-zone-name"></span></div>
+        <div class="palette" id="palette"></div>
+        <div class="hex-row mt8" id="cp-free-picker">
+          <input type="color" id="cp-color" value="#ffffff">
+          <input type="text" id="cp-hex" placeholder="#RRGGBB" style="font-family:monospace">
+          <button class="btn btn-primary btn-sm" id="btn-apply-col">OK</button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <div id="viewer">
+    <canvas id="c"></canvas>
+    <div id="loading"><div class="spinner"></div><p id="load-msg">Caricamento modello 3D…</p></div>
+    <div class="hint">🖱 Trascina per ruotare · Scroll per zoom · Clic su zona per colorare · Trascina testo/logo per spostare</div>
+    <div id="overlay-handles">
+      <div id="h-border"></div>
+      <div id="h-scale" title="Ridimensiona">⤡</div>
+      <div id="h-rotate" title="Ruota">↻</div>
+    </div>
+  </div>
+
+  <aside class="sidebar right">
+    <div class="tabs">
+      <div class="tab active" data-tab="text">Testo</div>
+      <div class="tab" data-tab="logo">Logo</div>
+    </div>
+
+    <div class="tab-pane active sec" id="tab-text">
+      <div class="sec-title">Aggiungi Testo</div>
+      <label>Testo</label>
+      <input type="text" id="t-text" placeholder="Es. TEAM NAME, numero…">
+      <label>Font</label>
+      <select id="t-font">
+        <option value="Arial Black">Arial Black</option>
+        <option value="Impact">Impact</option>
+        <option value="Arial">Arial</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Trebuchet MS">Trebuchet MS</option>
+        <option value="Tahoma">Tahoma</option>
+        <option value="Palatino Linotype">Palatino</option>
+        <option value="Garamond">Garamond</option>
+        <option value="Book Antiqua">Book Antiqua</option>
+        <option value="Century Gothic">Century Gothic</option>
+        <option value="Franklin Gothic Medium">Franklin Gothic</option>
+        <option value="Gill Sans">Gill Sans</option>
+        <option value="Lucida Console">Lucida Console</option>
+        <option value="Lucida Sans Unicode">Lucida Sans</option>
+        <option value="Monaco">Monaco</option>
+        <option value="Copperplate">Copperplate</option>
+        <option value="Didot">Didot</option>
+        <option value="Futura">Futura</option>
+        <option value="Optima">Optima</option>
+        <option value="Rockwell">Rockwell</option>
+        <option value="Baskerville">Baskerville</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Brush Script MT">Brush Script</option>
+      </select>
+      <label>Peso font</label>
+      <select id="t-weight">
+        <option value="normal">Normal</option>
+        <option value="bold" selected>Bold</option>
+        <option value="900">Black (900)</option>
+        <option value="700">Bold (700)</option>
+        <option value="600">Semi-Bold (600)</option>
+        <option value="400">Regular (400)</option>
+        <option value="300">Light (300)</option>
+      </select>
+      <input type="range" id="t-size" min="16" max="160" value="60" style="display:none">
+      <span id="t-size-val" style="display:none">60</span>
+      <label>Colore testo</label>
+      <div class="hex-row">
+        <input type="color" id="t-color" value="#ffffff">
+        <input type="text" id="t-color-hex" placeholder="#FFFFFF" value="#FFFFFF" style="font-family:monospace">
+      </div>
+      <div class="toggle-row mt8">
+        <span style="font-size:12px">Contorno</span>
+        <div class="tog on" id="tog-stroke"></div>
+      </div>
+      <label>Colore contorno</label>
+      <div class="hex-row">
+        <input type="color" id="t-stroke-color" value="#000000">
+        <input type="text" id="t-stroke-hex" placeholder="#000000" value="#000000" style="font-family:monospace">
+      </div>
+      <label>Spessore contorno — <span id="t-stroke-width-val">7</span>%</label>
+      <input type="range" id="t-stroke-width" min="1" max="30" value="7">
+      <button class="btn btn-primary btn-full mt" id="btn-add-text">+ Aggiungi Testo</button>
+      <div id="text-layers" style="margin-top:10px"></div>
+    </div>
+
+    <div class="tab-pane sec" id="tab-logo">
+      <div class="sec-title">Aggiungi Logo</div>
+
+      <!-- Modalità: Decal o Texture UV -->
+      <div class="toggle-row" style="margin-bottom:10px">
+        <span style="font-size:12px">Immagine di sfondo</span>
+        <div class="tog" id="tog-texture-mode"></div>
+      </div>
+      <div id="texture-mode-hint" style="display:none;font-size:10.5px;color:var(--muted);margin-bottom:8px;line-height:1.4">
+        Seleziona prima una zona colore, poi carica l'immagine.
+      </div>
+
+      <div class="upload-area" id="logo-drop">
+        <div class="icon">🖼</div>
+        <p>Clicca o trascina un'immagine<br>PNG · JPG · SVG — max 5 MB</p>
+        <input type="file" id="logo-file" accept="image/*" style="display:none">
+      </div>
+      <div id="decal-options" style="display:none">
+        <label>Dimensione — <span id="l-size-val">120</span>px</label>
+        <input type="range" id="l-size" min="20" max="400" value="120">
+        <label>Offset X — <span id="l-offx-val">0</span>%</label>
+        <input type="range" id="l-offx" min="-100" max="100" value="0">
+        <label>Offset Y — <span id="l-offy-val">0</span>%</label>
+        <input type="range" id="l-offy" min="-100" max="100" value="0">
+      </div>
+      <div id="texture-uv-options" style="display:none">
+        <label>Scala — <span id="uv-scale-val">24.0</span>x</label>
+        <div class="row2">
+          <input type="range" id="uv-scale" min="0.1" max="50" step="0.1" value="24">
+          <input type="number" id="uv-scale-num" min="0.1" max="50" step="0.1" value="24" style="width:60px;flex:none">
+        </div>
+        <label>Modifica Larghezza — <span id="uv-stretchx-val">100</span>%</label>
+        <div class="row2">
+          <input type="range" id="uv-stretchx" min="10" max="500" step="1" value="100">
+          <input type="number" id="uv-stretchx-num" min="10" max="500" step="1" value="100" style="width:60px;flex:none">
+        </div>
+        <label>Modifica Altezza — <span id="uv-stretchy-val">100</span>%</label>
+        <div class="row2">
+          <input type="range" id="uv-stretchy" min="10" max="500" step="1" value="100">
+          <input type="number" id="uv-stretchy-num" min="10" max="500" step="1" value="100" style="width:60px;flex:none">
+        </div>
+        <label>Muovi Sinistra - Destra — <span id="uv-offx-val">50</span>%</label>
+        <div class="row2">
+          <input type="range" id="uv-offx" min="-100" max="200" value="50">
+          <input type="number" id="uv-offx-num" min="-100" max="200" value="50" style="width:60px;flex:none">
+        </div>
+        <label>Muovi Su - Giù — <span id="uv-offy-val">50</span>%</label>
+        <div class="row2">
+          <input type="range" id="uv-offy" min="-100" max="200" value="50">
+          <input type="number" id="uv-offy-num" min="-100" max="200" value="50" style="width:60px;flex:none">
+        </div>
+        <label>Ruota — <span id="uv-rotate-val">0</span>°</label>
+        <div class="row2">
+          <input type="range" id="uv-rotate" min="-180" max="180" step="1" value="0">
+          <input type="number" id="uv-rotate-num" min="-180" max="180" step="1" value="0" style="width:60px;flex:none">
+        </div>
+      </div>
+      <div id="logo-layers" style="margin-top:10px"></div>
+    </div>
+
+
+<div class="sec" style="margin-top:auto">
+      <button class="btn btn-export" id="btn-pdf">📄 Scarica PDF Riepilogativo</button>
+    </div>
+  </aside>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader }   from 'three/addons/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ── DecalGeometry — inlined from three@0.160.0/examples/jsm/geometries/DecalGeometry.js ── */
+class DecalGeometry extends THREE.BufferGeometry {
+  constructor( mesh, position, orientation, size ) {
+    super();
+    const vertices = [], normals = [], uvs = [];
+    const plane = new THREE.Vector3();
+    const projectorMatrix = new THREE.Matrix4();
+    projectorMatrix.makeRotationFromEuler( orientation );
+    projectorMatrix.setPosition( position );
+    const projectorMatrixInverse = new THREE.Matrix4();
+    projectorMatrixInverse.copy( projectorMatrix ).invert();
+    generate();
+    this.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+    this.setAttribute( 'normal',   new THREE.Float32BufferAttribute( normals,  3 ) );
+    this.setAttribute( 'uv',       new THREE.Float32BufferAttribute( uvs,      2 ) );
+
+    function generate() {
+      let decalVertices = [];
+      const vertex = new THREE.Vector3(), normal = new THREE.Vector3();
+      const geometry = mesh.geometry;
+      const positionAttribute = geometry.attributes.position;
+      const normalAttribute   = geometry.attributes.normal;
+      if ( geometry.index !== null ) {
+        const index = geometry.index;
+        for ( let i = 0; i < index.count; i++ ) {
+          vertex.fromBufferAttribute( positionAttribute, index.getX( i ) );
+          normal.fromBufferAttribute( normalAttribute,   index.getX( i ) );
+          pushDecalVertex( decalVertices, vertex, normal );
+        }
+      } else {
+        for ( let i = 0; i < positionAttribute.count; i++ ) {
+          vertex.fromBufferAttribute( positionAttribute, i );
+          normal.fromBufferAttribute( normalAttribute,   i );
+          pushDecalVertex( decalVertices, vertex, normal );
+        }
+      }
+      decalVertices = clipGeometry( decalVertices, plane.set(  1,  0,  0 ) );
+      decalVertices = clipGeometry( decalVertices, plane.set( -1,  0,  0 ) );
+      decalVertices = clipGeometry( decalVertices, plane.set(  0,  1,  0 ) );
+      decalVertices = clipGeometry( decalVertices, plane.set(  0, -1,  0 ) );
+      decalVertices = clipGeometry( decalVertices, plane.set(  0,  0,  1 ) );
+      decalVertices = clipGeometry( decalVertices, plane.set(  0,  0, -1 ) );
+      for ( let i = 0; i < decalVertices.length; i++ ) {
+        const dv = decalVertices[ i ];
+        uvs.push( 0.5 + ( dv.position.x / size.x ), 0.5 + ( dv.position.y / size.y ) );
+        dv.position.applyMatrix4( projectorMatrix );
+        vertices.push( dv.position.x, dv.position.y, dv.position.z );
+        normals.push(  dv.normal.x,   dv.normal.y,   dv.normal.z  );
+      }
+    }
+
+    function pushDecalVertex( decalVertices, vertex, normal ) {
+      vertex.applyMatrix4( mesh.matrixWorld );
+      vertex.applyMatrix4( projectorMatrixInverse );
+      normal.transformDirection( mesh.matrixWorld );
+      decalVertices.push( new DecalVertex( vertex.clone(), normal.clone() ) );
+    }
+
+    function clipGeometry( inVertices, plane ) {
+      const outVertices = [];
+      const s = 0.5 * Math.abs( size.dot( plane ) );
+      for ( let i = 0; i < inVertices.length; i += 3 ) {
+        let nV1, nV2, nV3, nV4;
+        const d1 = inVertices[i+0].position.dot(plane) - s;
+        const d2 = inVertices[i+1].position.dot(plane) - s;
+        const d3 = inVertices[i+2].position.dot(plane) - s;
+        const v1Out = d1 > 0, v2Out = d2 > 0, v3Out = d3 > 0;
+        const total = (v1Out?1:0) + (v2Out?1:0) + (v3Out?1:0);
+        switch ( total ) {
+          case 0:
+            outVertices.push( inVertices[i], inVertices[i+1], inVertices[i+2] );
+            break;
+          case 1:
+            if ( v1Out ) {
+              nV1 = inVertices[i+1]; nV2 = inVertices[i+2];
+              nV3 = clip(inVertices[i],nV1,plane,s); nV4 = clip(inVertices[i],nV2,plane,s);
+            }
+            if ( v2Out ) {
+              nV1 = inVertices[i]; nV2 = inVertices[i+2];
+              nV3 = clip(inVertices[i+1],nV1,plane,s); nV4 = clip(inVertices[i+1],nV2,plane,s);
+              outVertices.push(nV3, nV2.clone(), nV1.clone(), nV2.clone(), nV3.clone(), nV4);
+              break;
+            }
+            if ( v3Out ) {
+              nV1 = inVertices[i]; nV2 = inVertices[i+1];
+              nV3 = clip(inVertices[i+2],nV1,plane,s); nV4 = clip(inVertices[i+2],nV2,plane,s);
+            }
+            outVertices.push(nV1.clone(), nV2.clone(), nV3, nV4, nV3.clone(), nV2.clone());
+            break;
+          case 2:
+            if (!v1Out) { nV1=inVertices[i].clone(); nV2=clip(nV1,inVertices[i+1],plane,s); nV3=clip(nV1,inVertices[i+2],plane,s); outVertices.push(nV1,nV2,nV3); }
+            if (!v2Out) { nV1=inVertices[i+1].clone(); nV2=clip(nV1,inVertices[i+2],plane,s); nV3=clip(nV1,inVertices[i],plane,s); outVertices.push(nV1,nV2,nV3); }
+            if (!v3Out) { nV1=inVertices[i+2].clone(); nV2=clip(nV1,inVertices[i],plane,s); nV3=clip(nV1,inVertices[i+1],plane,s); outVertices.push(nV1,nV2,nV3); }
+            break;
+        }
+      }
+      return outVertices;
+    }
+
+    function clip( v0, v1, p, s ) {
+      const d0 = v0.position.dot(p) - s, d1 = v1.position.dot(p) - s;
+      const s0 = d0 / (d0 - d1);
+      return new DecalVertex(
+        new THREE.Vector3( v0.position.x + s0*(v1.position.x-v0.position.x), v0.position.y + s0*(v1.position.y-v0.position.y), v0.position.z + s0*(v1.position.z-v0.position.z) ),
+        new THREE.Vector3( v0.normal.x   + s0*(v1.normal.x  -v0.normal.x  ), v0.normal.y   + s0*(v1.normal.y  -v0.normal.y  ), v0.normal.z   + s0*(v1.normal.z  -v0.normal.z  ) )
+      );
+    }
+  }
+}
+class DecalVertex {
+  constructor(position, normal) { this.position = position; this.normal = normal; }
+  clone() { return new DecalVertex(this.position.clone(), this.normal.clone()); }
+}
+/* ── end DecalGeometry ── */
+
+/* ─────────────────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────────────────── */
+const S = {
+  model:         null,
+  zones:         [],
+  activeZone:    -1,
+  textLayers:    [],
+  logoLayers:    [],
+  autoRotate:    false,
+  selectedLayer: null,
+};
+
+/* ─────────────────────────────────────────────────────────────
+   EXCLUSION RULES  (zone-colour list / zone raycast only)
+───────────────────────────────────────────────────────────── */
+const EXCLUDE_RE = /^Material[\.\d]+$/i;
+const EXCLUDE_KW = ['cordino','cordini','cucitura','stitching','seam'];
+/* 'cerniera' rimossa da EXCLUDE_KW — gestita come zona speciale per Felpa WALLABY */
+
+function isNameExcluded(name) {
+  if (!name) return false;
+  if (EXCLUDE_RE.test(name)) return true;
+  const low = name.toLowerCase();
+  return EXCLUDE_KW.some(k => low.includes(k));
+}
+
+let colorAllActive = false;
+
+/* ─────────────────────────────────────────────────────────────
+   SCENE / RENDERER
+───────────────────────────────────────────────────────────── */
+const canvas   = document.getElementById('c');
+const viewer   = document.getElementById('viewer');
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x1e1e2e);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 200);
+camera.position.set(0, 0.6, 2.8);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled   = true;
+renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace    = THREE.SRGBColorSpace;
+renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.07;
+controls.minDistance = 0.4;    controls.maxDistance   = 12;
+controls.target.set(0, 0.3, 0);
+
+const aLight = new THREE.AmbientLight(0xffffff, 1.0); scene.add(aLight);
+const key    = new THREE.DirectionalLight(0xffffff, 2.8);
+key.position.set(4,8,5); key.castShadow = true;
+key.shadow.mapSize.setScalar(2048);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 30;
+key.shadow.camera.left = key.shadow.camera.bottom = -3;
+key.shadow.camera.right = key.shadow.camera.top   =  3;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x90b4ff, 0.9); fill.position.set(-5,3,-4); scene.add(fill);
+const rim  = new THREE.DirectionalLight(0xffffff, 0.4); rim.position.set(0,-3,-5);  scene.add(rim);
+
+const gnd = new THREE.Mesh(new THREE.PlaneGeometry(12,12), new THREE.ShadowMaterial({opacity:0}));
+gnd.rotation.x = -Math.PI/2; gnd.position.y = -0.02; gnd.receiveShadow = false; scene.add(gnd);
+
+function onResize() {
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+onResize(); window.addEventListener('resize', onResize);
+
+const hBorder = document.getElementById('h-border');
+const hScale  = document.getElementById('h-scale');
+const hRotate = document.getElementById('h-rotate');
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (S.autoRotate && S.model) S.model.rotation.y += 0.005;
+  controls.update();
+  renderer.render(scene, camera);
+  updateHandles();
+}
+animate();
+
+/* ─────────────────────────────────────────────────────────────
+   MODEL CONFIG
+───────────────────────────────────────────────────────────── */
+const MODEL_CFG = {
+  'Canotta ELLE.glb':      { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Canotta KIRALY.glb':    { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Canotta PHIL.glb':      { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Canotta REGO.glb':      { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Costume BRASILIA.glb':  { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Costume HAVANA.glb':    { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Felpa WALLABY.glb':     { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Leggins ARENAS.glb':    { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Maglia HANNA.glb':      { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Maglia IVAN.glb':       { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Maglia LEO.glb':        { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Maglia MATT.glb':       { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Maglia MOKI.glb':       { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Maglia ROBIN.glb':      { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Manicotti OCTOPUS.glb': { camPos:new THREE.Vector3(0,.4,2.8), target:new THREE.Vector3(0,.2,0) },
+  'Panta ASIA.glb':        { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Panta BERE.glb':        { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Panta DNA.glb':         { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Panta MINU.glb':        { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Panta SHAQ.glb':        { camPos:new THREE.Vector3(0,.3,2.8), target:new THREE.Vector3(0,.0,0) },
+  'Top BEVERLY.glb':       { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Top CARACAS.glb':       { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0), innerDarkMeshes:['TOP_CARACASFRONT'] },
+  'Top BEVERLY.draco.glb': { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0) },
+  'Top CARACAS.draco.glb': { camPos:new THREE.Vector3(0,.6,2.8), target:new THREE.Vector3(0,.3,0), innerDarkMeshes:['TOP_CARACASFRONT'] },
+};
+
+/* ─────────────────────────────────────────────────────────────
+   LOAD MODEL
+───────────────────────────────────────────────────────────── */
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+dracoLoader.preload();
+const loader  = new GLTFLoader(); loader.setDRACOLoader(dracoLoader);
+const loadEl  = document.getElementById('loading');
+const loadMsg = document.getElementById('load-msg');
+const errBox  = document.getElementById('model-error');
+
+const MODELS_BASE_URL = 'https://raw.githubusercontent.com/biffobiffi01/b1piu8-modelli/main/';
+
+function loadModel(file) {
+  loadEl.style.display = 'flex';
+  errBox.style.display = 'none';
+
+  /* dispose decals (geometry/material/texture) then remove old model */
+  disposeAllLayers();
+  /* Pulisci texture UV layers */
+  if (typeof textureLayers !== 'undefined') {
+    textureLayers.forEach(e => { if (e.tex) e.tex.dispose(); });
+    textureLayers.length = 0;
+  }
+  if (S.model) { scene.remove(S.model); S.model = null; }
+  S.textLayers = []; S.logoLayers = [];
+  S.selectedLayer = null;
+  S.zones = []; S.activeZone = -1;
+  renderTextList(); renderLogoList();
+
+  const fileUrl = MODELS_BASE_URL + encodeURIComponent(file);
+
+  loader.load(
+    fileUrl,
+    gltf => {
+      const cfg = MODEL_CFG[file] || {};
+      const mdl = gltf.scene;
+      const box = new THREE.Box3().setFromObject(mdl);
+      const ctr = box.getCenter(new THREE.Vector3());
+      const sz  = box.getSize(new THREE.Vector3());
+      const sc  = 1.6 / Math.max(sz.x, sz.y, sz.z);
+      mdl.scale.setScalar(sc);
+      mdl.position.sub(ctr.multiplyScalar(sc));
+      mdl.position.y += sz.y * sc * 0.5;
+      const innerDarkSet = new Set((cfg.innerDarkMeshes || []).map(n => n.toLowerCase()));
+
+      mdl.traverse(c => {
+        if (!c.isMesh || c.userData.isBackface || c.userData.isDecal) return;
+        c.castShadow = c.receiveShadow = true;
+        c.material = Array.isArray(c.material) ? c.material.map(m => m.clone()) : c.material.clone();
+
+        const isConvex = innerDarkSet.has((c.name || '').toLowerCase());
+
+        /* DoubleSide così il modello è visibile da entrambi i lati;
+           per le mesh in innerDarkMeshes usiamo FrontSide perché il backface
+           viene gestito dalla mesh clonata con winding invertito */
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        mats.forEach(m => { m.side = isConvex ? THREE.FrontSide : THREE.DoubleSide; });
+
+        if (!isConvex) {
+          const backMat = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.75,
+            depthWrite: false,
+          });
+          const backMesh = new THREE.Mesh(c.geometry, backMat);
+          backMesh.userData.isBackface = true;
+          backMesh.userData.isDecal = false;
+          backMesh.renderOrder = 0;
+          c.add(backMesh);
+        } else {
+          const backMat = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false,
+          });
+          const backMesh = new THREE.Mesh(c.geometry, backMat);
+          backMesh.userData.isBackface = true;
+          backMesh.userData.isDecal = false;
+          backMesh.renderOrder = 0;
+          c.add(backMesh);
+        }
+      });
+      scene.add(mdl); S.model = mdl;
+      extractZones(file);
+      loadEl.style.display = 'none';
+    },
+    xhr => { const p = xhr.total ? Math.round(xhr.loaded/xhr.total*100) : 0; loadMsg.textContent = `Caricamento ${p}%…`; },
+    err => {
+      loadEl.style.display = 'none'; errBox.style.display = 'block';
+      errBox.textContent = `Impossibile caricare il modello.\nApri tramite server locale:\n  npx serve .  o  python -m http.server\nErrore: ${err.message||err}`;
+    }
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   EXTRACT ZONES
+───────────────────────────────────────────────────────────── */
+function extractZones(file) {
+  const cfg = MODEL_CFG[file] || {};
+  const matRenames = cfg.matRenames || {};
+  const hidden     = cfg.hiddenZones || [];
+  const matMap     = new Map();
+
+  /* Gruppo virtuale per tutte le mesh "cerniera" */
+  const cernieraMeshes = [];
+  const cernieraColor  = '#ffffff';
+
+  S.model.traverse(c => {
+    if (!c.isMesh || c.userData.isDecal || c.userData.isBackface) return;
+    /* Raggruppa le mesh cerniera separatamente */
+    if (c.name.toLowerCase().includes('cerniera')) {
+      cernieraMeshes.push(c);
+      return;
+    }
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach(m => {
+      if (!matMap.has(m.uuid)) matMap.set(m.uuid, { material:m, meshes:[] });
+      matMap.get(m.uuid).meshes.push(c);
+    });
+  });
+
+  S.zones = [...matMap.values()].map((z, i) => {
+    const meshName    = z.meshes[0]?.name || '';
+    const displayName = matRenames[z.material.name] || meshName || z.material.name || `Zona ${i+1}`;
+    const isExcluded  = z.meshes.some(m => isNameExcluded(m.name)) || isNameExcluded(z.material.name);
+    return { displayName, material:z.material, meshes:z.meshes,
+             color:'#'+z.material.color.getHexString().toUpperCase(),
+             hidden: hidden.includes(i) || isExcluded };
+  });
+
+  /* Aggiungi zona cerniera unificata se ci sono mesh */
+  if (cernieraMeshes.length) {
+    /* Usa il materiale della prima mesh cerniera */
+    const mat0 = Array.isArray(cernieraMeshes[0].material)
+      ? cernieraMeshes[0].material[0] : cernieraMeshes[0].material;
+    S.zones.push({
+      displayName: 'Cerniera',
+      material: mat0,
+      meshes: cernieraMeshes,
+      allMaterials: cernieraMeshes.map(c => Array.isArray(c.material) ? c.material[0] : c.material),
+      color: '#' + mat0.color.getHexString().toUpperCase(),
+      hidden: false,
+      isCerniera: true,
+    });
+  }
+
+  renderZonesUI();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ZONES UI
+───────────────────────────────────────────────────────────── */
+function renderZonesUI() {
+  const list = document.getElementById('zones-list');
+  list.innerHTML = '';
+  if (!S.zones.length) { list.innerHTML = '<p style="color:var(--muted);font-size:11px">Nessuna zona rilevata</p>'; return; }
+  S.zones.forEach((z, i) => {
+    if (z.hidden) return;
+    const card = document.createElement('div');
+    card.className = 'zone-card'; card.dataset.zoneIdx = i;
+    card.innerHTML = `<div class="zone-swatch" style="background:${z.color}"></div>
+      <div class="zone-info"><div class="zone-name">${z.displayName}</div>
+      <div class="zone-hex">${z.color.toUpperCase()}</div></div>
+      <div class="zone-arrow">›</div>`;
+    card.addEventListener('click', () => selectZone(i));
+    list.appendChild(card);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PALETTE
+───────────────────────────────────────────────────────────── */
+const PALETTE = [
+  '#ffffff','#f0f0f0','#c8c8c8','#888888','#444444','#111111','#000000',
+  '#ff3b30','#ff6b35','#ff9500','#ffcc02','#34c759','#00c7be','#32ade6',
+  '#007aff','#5856d6','#af52de','#ff2d55','#ff6b6b','#ffa45c',
+  '#4ecdc4','#45b7d1','#96ceb4','#ffeaa7','#a29bfe','#fd79a8',
+  '#00b894','#0984e3','#6c5ce7','#e17055','#fdcb6e','#55efc4',
+  '#2c3e50','#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#1a1a2e','#16213e','#0f3460','#533483',
+];
+const PROFILE_PALETTE = ['#000000','#FFFFFF'];
+
+function isProfileMaterial(z) {
+  const dn = (z.displayName||'').toLowerCase(), mn = (z.material.name||'').toLowerCase(), m0 = (z.meshes[0]?.name||'').toLowerCase();
+  return dn.includes('profil') || mn.includes('profil') || m0.includes('profil') || z.isCerniera;
+}
+
+const palEl = document.getElementById('palette');
+
+function renderPalette(colors) {
+  palEl.innerHTML = '';
+  colors.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'pal-dot'; d.style.background = c; d.title = c;
+    if (S.activeZone >= 0 && S.zones[S.activeZone]?.color.toUpperCase() === c.toUpperCase()) d.classList.add('sel');
+    d.addEventListener('click', () => {
+      if (S.activeZone < 0) return;
+      applyColor(S.activeZone, c);
+      document.getElementById('cp-color').value = c;
+      document.getElementById('cp-hex').value = c.toUpperCase();
+      palEl.querySelectorAll('.pal-dot').forEach(x => x.classList.remove('sel'));
+      d.classList.add('sel');
+    });
+    palEl.appendChild(d);
+  });
+}
+renderPalette(PALETTE);
+
+function selectZone(i) {
+  S.activeZone = i;
+  document.querySelectorAll('.zone-card').forEach(c => c.classList.toggle('active', parseInt(c.dataset.zoneIdx) === i));
+  S.zones.forEach((z,j) => { if (z.material.emissive) z.material.emissive.set(j===i?0x1a1a1a:0x000000); });
+  const z = S.zones[i]; const pan = document.getElementById('cp-panel'); pan.style.display = 'block';
+  document.getElementById('cp-zone-name').textContent = z.displayName;
+  document.getElementById('cp-color').value = z.color;
+  document.getElementById('cp-hex').value   = z.color.toUpperCase();
+  const limited = isProfileMaterial(z) ? PROFILE_PALETTE : null;
+  renderPalette(limited||PALETTE);
+  document.getElementById('cp-free-picker').style.display = limited ? 'none' : '';
+}
+
+function applyColor(i, hex) {
+  const col = hex.toUpperCase().startsWith('#') ? hex.toUpperCase() : '#'+hex.toUpperCase();
+  if (colorAllActive) {
+    S.zones.forEach((z,j) => {
+      if (z.hidden || isProfileMaterial(z)) return;
+      z.color = col; z.material.color.set(hex);
+      const card = document.querySelector(`.zone-card[data-zone-idx="${j}"]`);
+      if (card) { card.querySelector('.zone-swatch').style.background = col; card.querySelector('.zone-hex').textContent = col; }
+    });
+  } else {
+    if (i<0||i>=S.zones.length) return;
+    const z = S.zones[i];
+    z.color = col;
+    /* Se è la zona cerniera, colora tutti i materiali delle mesh */
+    if (z.isCerniera && z.allMaterials) {
+      z.allMaterials.forEach(m => m.color.set(hex));
+    } else {
+      z.material.color.set(hex);
+    }
+    const card = document.querySelector(`.zone-card[data-zone-idx="${i}"]`);
+    if (card) { card.querySelector('.zone-swatch').style.background = col; card.querySelector('.zone-hex').textContent = col; }
+  }
+}
+
+document.getElementById('cp-color').addEventListener('input', e => {
+  document.getElementById('cp-hex').value = e.target.value.toUpperCase();
+  if (S.activeZone >= 0) applyColor(S.activeZone, e.target.value);
+});
+document.getElementById('cp-hex').addEventListener('change', e => {
+  let h = e.target.value.trim(); if (!h.startsWith('#')) h='#'+h;
+  if (/^#[0-9a-fA-F]{6}$/.test(h)) { document.getElementById('cp-color').value=h; if (S.activeZone>=0) applyColor(S.activeZone,h); }
+});
+document.getElementById('btn-apply-col').addEventListener('click', () => { if (S.activeZone>=0) applyColor(S.activeZone, document.getElementById('cp-color').value); });
+
+/* ─────────────────────────────────────────────────────────────
+   RAYCASTING HELPERS
+───────────────────────────────────────────────────────────── */
+const rc = new THREE.Raycaster();
+const mp = new THREE.Vector2();
+let wasDrag = false, mdownX = 0, mdownY = 0;
+
+function canvasPointer(e) {
+  const r = canvas.getBoundingClientRect();
+  mp.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+}
+
+/* Zone-colour raycast: respects exclusion rules */
+function zoneMeshes() {
+  const arr = [];
+  if (!S.model) return arr;
+  S.model.traverse(c => {
+    if (!c.isMesh || c.userData.isDecal) return;
+    if (isNameExcluded(c.name)) return;
+    const mn = Array.isArray(c.material) ? c.material[0]?.name : c.material?.name;
+    if (isNameExcluded(mn)) return;
+    arr.push(c);
+  });
+  return arr;
+}
+
+/* ALL physical model meshes — for decal placement.
+   Includes seam/excluded meshes so Manicotti OCTOPUS works too. */
+function allModelMeshes() {
+  const arr = [];
+  if (!S.model) return arr;
+  S.model.traverse(c => { if (c.isMesh && !c.userData.isDecal) arr.push(c); });
+  return arr;
+}
+
+/* All decal overlay meshes (for hit-testing) */
+function allDecalMeshes() {
+  return [...S.textLayers, ...S.logoLayers].filter(l => l.decalMesh).map(l => l.decalMesh);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TEXTURE BUILDERS
+───────────────────────────────────────────────────────────── */
+
+/* Renders text onto a transparent CanvasTexture */
+function makeTextTexture(text, font, color, strokeEnabled, strokeColor, weight, strokeWidth) {
+  const off = document.createElement('canvas');
+  const ctx = off.getContext('2d');
+  const th  = 256;
+  const fw  = weight || 'bold';
+  const sw  = strokeWidth || 7;
+  ctx.font  = `${fw} ${Math.round(th*0.72)}px "${font}",Impact,sans-serif`;
+  const tw  = Math.max(64, Math.ceil(ctx.measureText(text).width) + 40);
+  off.width = tw; off.height = th;
+  ctx.clearRect(0, 0, tw, th);
+  ctx.font         = `${fw} ${Math.round(th*0.72)}px "${font}",Impact,sans-serif`;
+  ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
+  if (strokeEnabled) {
+    ctx.lineWidth    = th * (sw / 100);
+    ctx.strokeStyle  = strokeColor || 'rgba(0,0,0,0.55)';
+    ctx.strokeText(text, tw/2, th/2);
+  }
+  ctx.fillStyle    = color; ctx.fillText(text, tw/2, th/2);
+  const tex = new THREE.CanvasTexture(off);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.userData.aspect = tw/th;
+  return tex;
+}
+
+/* Draws HTMLImageElement onto a canvas so Three.js uploads it reliably */
+function makeLogoTexture(img, offsetX, offsetY) {
+  const w = img.naturalWidth  || 512;
+  const h = img.naturalHeight || 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  /* offsetX/Y sono valori -1..1 che spostano l'immagine sul canvas */
+  const ox = (offsetX || 0) * w;
+  const oy = (offsetY || 0) * h;
+  ctx.drawImage(img, ox, oy, w, h);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.userData.aspect = w / h;
+  return tex;
+}
+
+/* Ricostruisce la texture di un logo layer con l'offset corrente */
+function rebuildLogoTexture(layer) {
+  if (layer.texture) layer.texture.dispose();
+  layer.texture = makeLogoTexture(layer.img, layer.offsetX || 0, layer.offsetY || 0);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DECAL SYSTEM
+   ─────────────────────────────────────────────────────────────
+   Each layer stores:
+     positionLocal  — decal centre in S.model-local space
+     normalLocal    — surface normal in S.model-local space
+     rotation       — spin around the normal axis (radians)
+     sizePx         — size slider value → world-unit scale
+     hitMesh        — the mesh we last projected onto
+     texture        — THREE.Texture (CanvasTexture or image)
+     decalMesh      — THREE.Mesh added as child of S.model
+
+   Key trick for rotation-following:
+     DecalGeometry outputs vertices in WORLD space.
+     We call geom.applyMatrix4(S.model.matrixWorld.invert()) to convert
+     them to model-local space, then add the mesh as a child of S.model.
+     The mesh then rotates automatically with every model rotation.
+───────────────────────────────────────────────────────────── */
+
+/*
+  makeDecalOrientation(normW, userRotation)
+  ─────────────────────────────────────────
+  Costruisce l'orientamento del decal con una base ortogonale stabile.
+  Evita flip quando la normale cambia direzione passando tra mesh diverse.
+*/
+function makeDecalBasis(normW) {
+  const n = normW.clone().normalize();
+  /* Scegli un vettore "up" stabile che non sia parallelo alla normale */
+  let up = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(n.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+  const right  = new THREE.Vector3().crossVectors(up, n).normalize();
+  const realUp = new THREE.Vector3().crossVectors(n, right).normalize();
+  return new THREE.Matrix4().makeBasis(right, realUp, n);
+}
+
+function makeDecalOrientation(normW, userRotation) {
+  const m  = makeDecalBasis(normW);
+  const q0 = new THREE.Quaternion().setFromRotationMatrix(m);
+  const spin = new THREE.Quaternion().setFromAxisAngle(normW.clone().normalize(), userRotation || 0);
+  return new THREE.Euler().setFromQuaternion(spin.multiply(q0), 'XYZ');
+}
+
+/* Same but returns Quaternion — used by updateHandles() to derive screen-space axes */
+function makeDecalQuat(normW, userRotation) {
+  const m  = makeDecalBasis(normW);
+  const q0 = new THREE.Quaternion().setFromRotationMatrix(m);
+  const spin = new THREE.Quaternion().setFromAxisAngle(normW.clone().normalize(), userRotation || 0);
+  return spin.multiply(q0);
+}
+
+function buildDecal(layer) {
+  if (layer.decalMesh) {
+    /* rimuovi dal genitore corretto (modello o scena) */
+    if (layer.decalMesh.parent) layer.decalMesh.parent.remove(layer.decalMesh);
+    layer.decalMesh.geometry.dispose();
+    layer.decalMesh.material.dispose();
+    layer.decalMesh = null;
+  }
+  if (!S.model || !layer.texture || layer.visible === false) return;
+
+  S.model.updateMatrixWorld(true);
+
+  const posW = new THREE.Vector3().setFromMatrixPosition(
+    new THREE.Matrix4().makeTranslation(
+      layer.positionLocal.x, layer.positionLocal.y, layer.positionLocal.z
+    ).premultiply(S.model.matrixWorld)
+  );
+
+  const normW = layer.normalLocal.clone().transformDirection(S.model.matrixWorld).normalize();
+  posW.addScaledVector(normW, 0.03);
+
+  const orientation = makeDecalOrientation(normW, layer.rotation);
+  const aspect = layer.texture.userData.aspect || 1;
+  const hW = layer.sizePx / 400;
+  const wW = hW * aspect;
+  const size = new THREE.Vector3(wW, hW, Math.max(wW, hW) * 6);
+
+  let targetMesh = null;
+  S.model.traverse(c => { if (c === layer.hitMesh) targetMesh = c; });
+  if (!targetMesh) {
+    S.model.traverse(c => { if (!targetMesh && c.isMesh && !c.userData.isDecal) targetMesh = c; });
+    if (!targetMesh) { console.warn('[decal] nessuna targetMesh'); return; }
+    layer.hitMesh = targetMesh;
+  }
+
+  let geom;
+  try { geom = new DecalGeometry(targetMesh, posW, orientation, size); }
+  catch(e) { console.warn('DecalGeometry error:', e); return; }
+
+  const triCount = geom.attributes.position?.count ?? 0;
+  if (triCount === 0) { console.warn('[decal] 0 triangoli'); geom.dispose(); return; }
+
+  /* Converti geometria da world space a model-local space
+     così il decal è figlio del modello e ruota con lui */
+  geom.applyMatrix4(S.model.matrixWorld.clone().invert());
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: layer.texture,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
+  });
+
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.renderOrder = 1;
+  mesh.userData.isDecal = true;
+  mesh.userData.layerId = layer.id;
+
+  /* Overlay scuro sul retro del decal, stesso del modello */
+  const decalBackMat = new THREE.MeshBasicMaterial({
+    color: 0x000000, side: THREE.BackSide,
+    transparent: true, opacity: 0.75, depthWrite: false,
+    map: layer.texture, alphaTest: 0.1,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+  });
+  const decalBack = new THREE.Mesh(geom, decalBackMat);
+  decalBack.renderOrder = 1;
+  decalBack.userData.isDecal = true;
+  decalBack.userData.isBackface = true;
+  mesh.add(decalBack);
+
+  S.model.add(mesh);
+  layer.decalMesh = mesh;
+}
+
+/* Dispose all layers (called on model switch) */
+function disposeAllLayers() {
+  [...S.textLayers, ...S.logoLayers].forEach(l => {
+    if (l.decalMesh) {
+      if (l.decalMesh.parent) l.decalMesh.parent.remove(l.decalMesh);
+      l.decalMesh.geometry.dispose();
+      l.decalMesh.material.dispose();
+      l.decalMesh = null;
+    }
+    if (l.texture) l.texture.dispose();
+  });
+}
+
+/*
+  getDefaultSurfaceHit()
+  ──────────────────────
+  Finds the best hit point on the model for automatic decal placement.
+  Uses ALL model meshes (no exclusions) — fixes Manicotti OCTOPUS which
+  has all meshes excluded from zone colouring but still has renderable geometry.
+  Strategy: screen-centre ray → bbox-centre ray → AABB-centre fallback.
+*/
+function getDefaultSurfaceHit() {
+  if (!S.model) return null;
+  const meshes = allModelMeshes();
+  if (!meshes.length) return null;
+  const ray = new THREE.Raycaster();
+
+  /* 1. ray through screen centre */
+  ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  let hits = ray.intersectObjects(meshes, false);
+
+  /* 2. ray toward model bbox centre */
+  if (!hits.length) {
+    const ctr = new THREE.Box3().setFromObject(S.model).getCenter(new THREE.Vector3());
+    ray.set(camera.position.clone(), ctr.clone().sub(camera.position).normalize());
+    hits = ray.intersectObjects(meshes, false);
+  }
+
+  if (hits.length) {
+    const h = hits[0];
+    const normW = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+    /* ensure normal faces the camera */
+    const camToSurface = h.point.clone().sub(camera.position).normalize();
+    if (normW.dot(camToSurface) > 0) normW.negate();
+    return {
+      hitMesh:       h.object,
+      positionWorld: h.point.clone(),
+      normalWorld:   normW,
+    };
+  }
+
+  /* 3. absolute fallback */
+  const ctr   = new THREE.Box3().setFromObject(S.model).getCenter(new THREE.Vector3());
+  const normW = new THREE.Vector3(0,0,1).transformDirection(S.model.matrixWorld).normalize();
+  return { hitMesh: meshes[0], positionWorld: ctr, normalWorld: normW };
+}
+
+/* Convert a world-space hit point + normal to model-local space */
+function worldHitToLocal(posW, normW) {
+  const posLocal  = S.model.worldToLocal(posW.clone());
+  const normLocal = normW.clone().transformDirection(S.model.matrixWorld.clone().invert()).normalize();
+  return { posLocal, normLocal };
+}
+
+/* Throttle helper — ensures at most one decal rebuild per 60 ms during drag */
+let _lastBuild = 0;
+function throttleBuildDecal(layer) {
+  const now = performance.now();
+  if (now - _lastBuild < 60) return;
+  _lastBuild = now;
+  buildDecal(layer);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HANDLE POSITIONING
+   Projects the decal's "virtual corners" to screen space.
+   The corners are computed from the stored positionLocal + the
+   decal's local X/Y axes (derived from normalLocal + rotation).
+───────────────────────────────────────────────────────────── */
+
+function projectWorldToScreen(worldPos) {
+  const ndc = worldPos.clone().project(camera);
+  if (ndc.z > 1) return null;
+  const r = canvas.getBoundingClientRect();
+  return { x:(ndc.x+1)/2*r.width, y:(-ndc.y+1)/2*r.height };
+}
+
+function projectWorldToClient(worldPos) {
+  const sc = projectWorldToScreen(worldPos);
+  if (!sc) return null;
+  const r = canvas.getBoundingClientRect();
+  return { x: sc.x + r.left, y: sc.y + r.top };
+}
+
+function updateHandles() {
+  if (!S.selectedLayer || !S.model) {
+    hBorder.style.display = hScale.style.display = hRotate.style.display = 'none'; return;
+  }
+  const layer  = S.selectedLayer;
+  const aspect = layer.texture?.userData?.aspect || 1;
+  const hW = layer.sizePx / 400;
+  const wW = hW * aspect;
+
+  /* world-space decal centre */
+  const mw   = S.model.matrixWorld;
+  const posW = layer.positionLocal.clone().applyMatrix4(mw);
+  const sc   = projectWorldToScreen(posW);
+  if (!sc) { hBorder.style.display = hScale.style.display = hRotate.style.display = 'none'; return; }
+
+  /* world-space X/Y axes of the decal */
+  const normW = layer.normalLocal.clone().transformDirection(mw).normalize();
+  const q  = makeDecalQuat(normW, layer.rotation);
+  const xW = new THREE.Vector3(1,0,0).applyQuaternion(q);
+  const yW = new THREE.Vector3(0,1,0).applyQuaternion(q);
+
+  /* 4 corners + top-centre in world space */
+  const tl = projectWorldToScreen(posW.clone().addScaledVector(xW,-wW/2).addScaledVector(yW, hW/2));
+  const tr = projectWorldToScreen(posW.clone().addScaledVector(xW, wW/2).addScaledVector(yW, hW/2));
+  const bl = projectWorldToScreen(posW.clone().addScaledVector(xW,-wW/2).addScaledVector(yW,-hW/2));
+  const br = projectWorldToScreen(posW.clone().addScaledVector(xW, wW/2).addScaledVector(yW,-hW/2));
+  const tc = projectWorldToScreen(posW.clone().addScaledVector(yW, hW/2)); /* top-edge centre */
+
+  if (!tl||!tr||!bl||!br) { hBorder.style.display = hScale.style.display = hRotate.style.display = 'none'; return; }
+
+  /* bounding box → dashed border */
+  const xs=[tl.x,tr.x,bl.x,br.x], ys=[tl.y,tr.y,bl.y,br.y];
+  hBorder.style.left=Math.min(...xs)+'px'; hBorder.style.top=Math.min(...ys)+'px';
+  hBorder.style.width=(Math.max(...xs)-Math.min(...xs))+'px'; hBorder.style.height=(Math.max(...ys)-Math.min(...ys))+'px';
+  hBorder.style.display='block';
+
+  /* scale handle at bottom-right corner */
+  hScale.style.left=(br.x-9)+'px'; hScale.style.top=(br.y-9)+'px'; hScale.style.display='flex';
+
+  /* rotate handle 18px beyond top-edge centre */
+  if (tc) {
+    const dx=tc.x-sc.x, dy=tc.y-sc.y, len=Math.hypot(dx,dy)||1;
+    hRotate.style.left=(tc.x+dx/len*18-9)+'px'; hRotate.style.top=(tc.y+dy/len*18-9)+'px'; hRotate.style.display='flex';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HANDLE INTERACTIONS — scale & rotate
+───────────────────────────────────────────────────────────── */
+let scaleState  = null;
+let rotateState = null;
+
+hScale.addEventListener('mousedown', e => {
+  e.stopPropagation();
+  if (!S.selectedLayer || !S.model) return;
+  const posW = S.selectedLayer.positionLocal.clone().applyMatrix4(S.model.matrixWorld);
+  const c = projectWorldToClient(posW);
+  if (!c) return;
+  scaleState = { initDist: Math.hypot(e.clientX-c.x, e.clientY-c.y)||1, initSize: S.selectedLayer.sizePx, layer: S.selectedLayer, cx: c.x, cy: c.y };
+  controls.enabled = false;
+});
+
+hRotate.addEventListener('mousedown', e => {
+  e.stopPropagation();
+  if (!S.selectedLayer || !S.model) return;
+  const posW = S.selectedLayer.positionLocal.clone().applyMatrix4(S.model.matrixWorld);
+  const c = projectWorldToClient(posW);
+  if (!c) return;
+  rotateState = { initAngle: Math.atan2(e.clientY-c.y, e.clientX-c.x), initRot: S.selectedLayer.rotation||0, layer: S.selectedLayer, cx: c.x, cy: c.y };
+  controls.enabled = false;
+});
+
+window.addEventListener('mousemove', e => {
+  if (scaleState) {
+    const d = Math.hypot(e.clientX-scaleState.cx, e.clientY-scaleState.cy);
+    scaleState.layer.sizePx = Math.max(14, Math.round(scaleState.initSize * Math.max(0.1, d/scaleState.initDist)));
+    throttleBuildDecal(scaleState.layer);
+  }
+  if (rotateState) {
+    const a = Math.atan2(e.clientY-rotateState.cy, e.clientX-rotateState.cx);
+    rotateState.layer.rotation = rotateState.initRot - (a - rotateState.initAngle);
+    throttleBuildDecal(rotateState.layer);
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (scaleState)  { buildDecal(scaleState.layer);  scaleState  = null; if (!dragLayer) controls.enabled = true; }
+  if (rotateState) { buildDecal(rotateState.layer); rotateState = null; if (!dragLayer) controls.enabled = true; }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   CANVAS MOUSE EVENTS
+───────────────────────────────────────────────────────────── */
+let dragLayer = null;
+let dragOffset = null; /* offset in local space tra click e centro del decal */
+
+canvas.addEventListener('mousedown', e => {
+  mdownX = e.clientX; mdownY = e.clientY; wasDrag = false;
+  canvasPointer(e); rc.setFromCamera(mp, camera);
+
+  /* 1. hit-test all decal meshes — preferisci layer non bloccati, poi i più recenti */
+  const dHits = rc.intersectObjects(allDecalMeshes(), false);
+  if (dHits.length) {
+    const allLayers = [...S.textLayers, ...S.logoLayers];
+    const hitIds = new Set(dHits.map(h => h.object.userData.layerId));
+    const hitUnlocked = allLayers.filter(l => hitIds.has(l.id) && !l.locked);
+    const hitLocked   = allLayers.filter(l => hitIds.has(l.id) && l.locked);
+    const candidates  = hitUnlocked.length ? hitUnlocked : hitLocked;
+    const layer = candidates.reduce((best, l) => (!best || l.id > best.id) ? l : best, null);
+    if (layer) {
+      S.selectedLayer = layer;
+      if (!layer.locked) {
+        dragLayer = layer;
+        controls.enabled = false;
+        /* Calcola offset tra punto di click e centro del decal in local space */
+        S.model.updateMatrixWorld(true);
+        const invMW = S.model.matrixWorld.clone().invert();
+        const clickLocal = dHits[0].point.clone().applyMatrix4(invMW);
+        dragOffset = clickLocal.clone().sub(layer.positionLocal);
+      }
+      renderTextList(); renderLogoList(); renderLayerList(); return;
+    }
+  }
+
+  /* 2. click on canvas → deselect */
+  if (S.selectedLayer) { S.selectedLayer = null; renderTextList(); renderLogoList(); renderLayerList(); }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (Math.hypot(e.clientX-mdownX, e.clientY-mdownY) > 4) wasDrag = true;
+  if (!dragLayer || !S.model) return;
+  canvasPointer(e); rc.setFromCamera(mp, camera);
+
+  const hits = rc.intersectObjects(allModelMeshes(), false);
+  if (!hits.length) return;
+
+  const h = hits[0];
+  dragLayer.hitMesh = h.object;
+
+  S.model.updateMatrixWorld(true);
+  const invMW = S.model.matrixWorld.clone().invert();
+
+  /* Il punto cliccato sulla mesh diventa il punto dell'immagine toccato,
+     sottraiamo l'offset per mantenere il punto di click fisso sotto il cursore */
+  const hitLocal = h.point.clone().applyMatrix4(invMW);
+  dragLayer.positionLocal.copy(hitLocal.clone().sub(dragOffset || new THREE.Vector3()));
+
+  const normW = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+  if (normW.dot(camera.position.clone().sub(h.point)) < 0) normW.negate();
+  dragLayer.normalLocal.copy(normW.clone().transformDirection(invMW).normalize());
+
+  throttleBuildDecal(dragLayer);
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (dragLayer) { buildDecal(dragLayer); dragLayer = null; dragOffset = null; controls.enabled = true; }
+});
+
+canvas.addEventListener('click', e => {
+  if (wasDrag || !S.model) return;
+  canvasPointer(e); rc.setFromCamera(mp, camera);
+  /* never zone-select when clicking on a decal */
+  if (rc.intersectObjects(allDecalMeshes(), false).length) return;
+  if (S.selectedLayer) return;
+  const hits = rc.intersectObjects(zoneMeshes(), false);
+  if (!hits.length) return;
+  const hitMat = Array.isArray(hits[0].object.material)
+    ? hits[0].object.material[hits[0].face?.materialIndex??0] : hits[0].object.material;
+  const idx = S.zones.findIndex(z => z.material === hitMat || z.material.uuid === hitMat.uuid);
+  if (idx >= 0) selectZone(idx);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   TEXT OVERLAYS
+───────────────────────────────────────────────────────────── */
+document.getElementById('t-size').addEventListener('input', e => document.getElementById('t-size-val').textContent = e.target.value);
+document.getElementById('t-color').addEventListener('input', e => {
+  document.getElementById('t-color-hex').value = e.target.value.toUpperCase();
+  updateSelectedTextLayer();
+});
+document.getElementById('t-color-hex').addEventListener('change', e => {
+  let h = e.target.value; if (!h.startsWith('#')) h='#'+h;
+  if (/^#[0-9a-fA-F]{6}$/.test(h)) document.getElementById('t-color').value = h;
+  updateSelectedTextLayer();
+});
+document.getElementById('t-stroke-color').addEventListener('input', e => {
+  document.getElementById('t-stroke-hex').value = e.target.value.toUpperCase();
+  updateSelectedTextLayer();
+});
+document.getElementById('t-stroke-hex').addEventListener('change', e => {
+  let h = e.target.value; if (!h.startsWith('#')) h='#'+h;
+  if (/^#[0-9a-fA-F]{6}$/.test(h)) document.getElementById('t-stroke-color').value = h;
+  updateSelectedTextLayer();
+});
+togBind('tog-stroke', () => { updateSelectedTextLayer(); });
+document.getElementById('t-weight').addEventListener('change', () => updateSelectedTextLayer());
+document.getElementById('t-font').addEventListener('change', () => updateSelectedTextLayer());
+document.getElementById('t-stroke-width').addEventListener('input', e => {
+  document.getElementById('t-stroke-width-val').textContent = e.target.value;
+  updateSelectedTextLayer();
+});
+
+document.getElementById('btn-add-text').addEventListener('click', () => {
+  const txt = document.getElementById('t-text').value.trim();
+  if (!txt) return;
+  if (!S.model) { alert('Carica prima un modello 3D.'); return; }
+  addTextLayer(txt, document.getElementById('t-font').value,
+               parseInt(document.getElementById('t-size').value),
+               document.getElementById('t-color').value);
+  document.getElementById('t-text').value = '';
+});
+
+function addTextLayer(text, font, sizePx, color) {
+  const hit = getDefaultSurfaceHit();
+  if (!hit) return;
+  const { posLocal, normLocal } = worldHitToLocal(hit.positionWorld, hit.normalWorld);
+  const strokeEnabled = document.getElementById('tog-stroke').classList.contains('on');
+  const strokeColor   = document.getElementById('t-stroke-color').value;
+  const weight        = document.getElementById('t-weight').value;
+  const strokeWidth   = parseInt(document.getElementById('t-stroke-width').value);
+  const texture = makeTextTexture(text, font, color, strokeEnabled, strokeColor, weight, strokeWidth);
+  const n = S.textLayers.length + 1;
+  const layer = {
+    id: Date.now(), text, font, color, size: sizePx, sizePx,
+    strokeEnabled, strokeColor, weight, strokeWidth,
+    label: `Testo ${n}`,
+    visible: true, locked: false,
+    texture, hitMesh: hit.hitMesh,
+    positionLocal: posLocal, normalLocal: normLocal,
+    rotation: 0, decalMesh: null,
+  };
+  buildDecal(layer);
+  S.textLayers.push(layer); S.selectedLayer = layer; renderTextList();
+}
+
+function rebuildTextTexture(layer) {
+  if (layer.texture) layer.texture.dispose();
+  layer.texture = makeTextTexture(layer.text, layer.font, layer.color, layer.strokeEnabled, layer.strokeColor, layer.weight, layer.strokeWidth);
+  buildDecal(layer);
+}
+
+function updateSelectedTextLayer() {
+  const l = S.selectedLayer;
+  if (!l || !S.textLayers.includes(l)) return;
+  l.color         = document.getElementById('t-color').value;
+  l.font          = document.getElementById('t-font').value;
+  l.strokeEnabled = document.getElementById('tog-stroke').classList.contains('on');
+  l.strokeColor   = document.getElementById('t-stroke-color').value;
+  l.weight        = document.getElementById('t-weight').value;
+  l.strokeWidth   = parseInt(document.getElementById('t-stroke-width').value);
+  rebuildTextTexture(l);
+}
+
+function renderTextList() {
+  const el = document.getElementById('text-layers'); el.innerHTML = '';
+  if (!S.textLayers.length) { el.innerHTML = '<p style="color:var(--muted);font-size:11px;margin-top:8px">Nessun testo inserito</p>'; return; }
+  S.textLayers.forEach(l => {
+    const sel = S.selectedLayer === l;
+    const d = document.createElement('div');
+    d.className = 'layer-row' + (sel ? ' layer-sel' : '') + (!l.visible ? ' layer-hidden' : '');
+    const preview = l.text.length > 20 ? l.text.slice(0, 18) + '…' : l.text;
+    d.innerHTML = `
+      <span class="layer-name" title="${l.text}">"${preview}"</span>
+      <button class="layer-icon li-eye"  title="${l.visible ? 'Nascondi' : 'Mostra'}">${l.visible ? '👁' : '🚫'}</button>
+      <button class="layer-icon li-lock" title="${l.locked ? 'Sblocca' : 'Blocca'}" style="background:${l.locked ? '#e74c3c' : '#27ae60'};color:#fff;border-radius:4px">${l.locked ? '🔒' : '🔓'}</button>
+      <button class="layer-icon li-del"  title="Elimina" style="color:var(--red)">✕</button>`;
+    d.querySelector('.layer-name').addEventListener('click', () => {
+      if (l.locked) return;
+      S.selectedLayer = l;
+      /* Popola i controlli con i valori del layer selezionato */
+      document.getElementById('t-color').value = l.color;
+      document.getElementById('t-color-hex').value = l.color.toUpperCase();
+      document.getElementById('t-font').value = l.font || 'Arial Black';
+      document.getElementById('t-stroke-color').value = l.strokeColor || '#000000';
+      document.getElementById('t-stroke-hex').value = (l.strokeColor || '#000000').toUpperCase();
+      document.getElementById('t-weight').value = l.weight || 'bold';
+      document.getElementById('t-stroke-width').value = l.strokeWidth || 7;
+      document.getElementById('t-stroke-width-val').textContent = l.strokeWidth || 7;
+      const togStroke = document.getElementById('tog-stroke');
+      if (l.strokeEnabled && !togStroke.classList.contains('on')) togStroke.classList.add('on');
+      if (!l.strokeEnabled && togStroke.classList.contains('on')) togStroke.classList.remove('on');
+      renderTextList(); renderLogoList();
+    });
+    d.querySelector('.li-eye').addEventListener('click', e => {
+      e.stopPropagation(); l.visible = !l.visible; buildDecal(l); renderTextList();
+    });
+    d.querySelector('.li-lock').addEventListener('click', e => {
+      e.stopPropagation(); l.locked = !l.locked;
+      if (l.locked && S.selectedLayer === l) S.selectedLayer = null;
+      renderTextList(); renderLogoList();
+    });
+    d.querySelector('.li-del').addEventListener('click', e => {
+      e.stopPropagation(); deleteLayer(l);
+    });
+    el.appendChild(d);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LOGO OVERLAYS
+───────────────────────────────────────────────────────────── */
+document.getElementById('l-size').addEventListener('input', e => document.getElementById('l-size-val').textContent = e.target.value);
+
+document.getElementById('l-offx').addEventListener('input', e => {
+  document.getElementById('l-offx-val').textContent = e.target.value;
+  if (S.selectedLayer && S.logoLayers.includes(S.selectedLayer)) {
+    S.selectedLayer.offsetX = parseFloat(e.target.value) / 100;
+    rebuildLogoTexture(S.selectedLayer);
+    buildDecal(S.selectedLayer);
+  }
+});
+document.getElementById('l-offy').addEventListener('input', e => {
+  document.getElementById('l-offy-val').textContent = e.target.value;
+  if (S.selectedLayer && S.logoLayers.includes(S.selectedLayer)) {
+    S.selectedLayer.offsetY = parseFloat(e.target.value) / 100;
+    rebuildLogoTexture(S.selectedLayer);
+    buildDecal(S.selectedLayer);
+  }
+});
+
+/* Modalità Texture UV */
+let textureModeActive = false;
+const textureLayers = []; /* { zone, origMap, origColor, texture } */
+
+togBind('tog-texture-mode', on => {
+  textureModeActive = on;
+  document.getElementById('texture-mode-hint').style.display = on ? 'block' : 'none';
+  document.getElementById('decal-options').style.display = 'none';
+  document.getElementById('texture-uv-options').style.display = on ? 'block' : 'none';
+});
+
+/* Listener per scala e offset UV */
+let activeTextureEntry = null;
+
+function updateActiveTextureUV() {
+  if (!activeTextureEntry) return;
+  const sliderScale   = parseFloat(document.getElementById('uv-scale').value);
+  const sliderOffx    = parseFloat(document.getElementById('uv-offx').value) / 100;
+  const sliderOffy    = parseFloat(document.getElementById('uv-offy').value) / 100;
+  const stretchX      = parseFloat(document.getElementById('uv-stretchx').value) / 100;
+  const stretchY      = parseFloat(document.getElementById('uv-stretchy').value) / 100;
+  const imgAspect     = activeTextureEntry.aspect || 1;
+  const meshAspect    = activeTextureEntry.meshAspect || 1;
+
+  /* Base repeat (mantiene proporzioni immagine corrette rispetto alle UV) */
+  const baseRepeatX = 1 / sliderScale;
+  const baseRepeatY = -(baseRepeatX * meshAspect / imgAspect);
+
+  /* Stretch: dividere il repeat restringe la texture (la ingrandisce), moltiplicare la allarga */
+  const repeatX = baseRepeatX / stretchX;
+  const repeatY = baseRepeatY / stretchY;
+
+  const offX = 1 - sliderOffx;
+  const offY = 1 - sliderOffy;
+
+  const rotation = parseFloat(document.getElementById('uv-rotate').value) * Math.PI / 180;
+
+  activeTextureEntry.mats.forEach(m => {
+    if (m.map) {
+      m.map.repeat.set(repeatX, repeatY);
+      m.map.center.set(0.5, 0.5);
+      m.map.rotation = rotation;
+      /* Con center=0.5,0.5 l'offset deve essere traslato per mantenere
+         il comportamento atteso degli slider */
+      m.map.offset.set(offX, offY);
+      m.map.needsUpdate = true;
+    }
+  });
+}
+
+/* I listener per scala, stretch, offset e rotazione sono gestiti da syncUV più sotto */
+
+/* Sincronizzazione slider ↔ numero per tutti i controlli UV */
+function syncUV(sliderId, numId, labelId) {
+  const slider = document.getElementById(sliderId);
+  const num    = document.getElementById(numId);
+  const label  = labelId ? document.getElementById(labelId) : null;
+  slider.addEventListener('input', e => {
+    num.value = e.target.value;
+    if (label) label.textContent = parseFloat(e.target.value).toFixed(sliderId === 'uv-scale' ? 1 : 0);
+    updateActiveTextureUV();
+  });
+  num.addEventListener('input', e => {
+    slider.value = e.target.value;
+    if (label) label.textContent = parseFloat(e.target.value).toFixed(sliderId === 'uv-scale' ? 1 : 0);
+    updateActiveTextureUV();
+  });
+}
+syncUV('uv-scale',   'uv-scale-num',   'uv-scale-val');
+syncUV('uv-stretchx','uv-stretchx-num','uv-stretchx-val');
+syncUV('uv-stretchy','uv-stretchy-num','uv-stretchy-val');
+syncUV('uv-offx',    'uv-offx-num',    'uv-offx-val');
+syncUV('uv-offy',    'uv-offy-num',    'uv-offy-val');
+syncUV('uv-rotate',  'uv-rotate-num',  'uv-rotate-val');
+
+function applyTextureToZone(img, filename) {
+  if (S.activeZone < 0) { alert('Seleziona prima una zona colore nel pannello a sinistra!'); return; }
+  const zone = S.zones[S.activeZone];
+  const w = img.naturalWidth || 512, h = img.naturalHeight || 512;
+  const imgAspect = w / h;
+
+  /* Calcola meshAspect e range UV direttamente dall'attributo UV della mesh.
+     Questo è l'unico modo corretto: le UV possono avere proporzioni completamente
+     diverse dalla bounding box 3D (es. canotta alta ma UV quasi quadrate). */
+  let meshAspect = 1;
+  let uvRangeV   = 1;
+  const mesh = zone.meshes[0];
+  if (mesh && mesh.geometry && mesh.geometry.attributes.uv) {
+    const uv = mesh.geometry.attributes.uv;
+    let minU = Infinity, maxU = -Infinity;
+    let minV = Infinity, maxV = -Infinity;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i), v = uv.getY(i);
+      if (u < minU) minU = u; if (u > maxU) maxU = u;
+      if (v < minV) minV = v; if (v > maxV) maxV = v;
+    }
+    const rangeU = maxU - minU;
+    const rangeV = maxV - minV;
+    uvRangeV = Math.max(1, rangeV);
+    /* meshAspect = proporzione dello spazio UV occupato dalla zona (U/V) */
+    if (rangeV > 0) meshAspect = rangeU / rangeV;
+    console.log(`[UV debug] meshAspect:${meshAspect.toFixed(3)} dims:${rangeU.toFixed(3)},${rangeV.toFixed(3)},${Math.min(rangeU,rangeV).toFixed(3)}`);
+  }
+
+  /* Scala automatica: usa il range UV per coprire tutta la zona */
+  const autoScale = Math.max(1, Math.round(uvRangeV * 1.2));
+  const maxScale = autoScale * 3;
+
+  const cnv = document.createElement('canvas'); cnv.width = w; cnv.height = h;
+  cnv.getContext('2d').drawImage(img, 0, 0, w, h);
+  const tex = new THREE.CanvasTexture(cnv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  /* repeatX: quante volte l'immagine si ripete in U
+     repeatY: corregge l'aspect ratio immagine vs spazio UV della mesh
+              (meshAspect = rangeU/rangeV, imgAspect = W/H)
+              negativo per flip verticale standard Three.js/OpenGL */
+  const repeatX = 1 / autoScale;
+  const repeatY = -(repeatX * meshAspect / imgAspect);
+  tex.repeat.set(repeatX, repeatY);
+  tex.offset.set(0.5, 0.5);
+
+  /* Aggiorna slider con scala automatica */
+  document.getElementById('uv-scale').max = maxScale;
+  document.getElementById('uv-scale').value = autoScale;
+  document.getElementById('uv-scale-val').textContent = autoScale.toFixed(1);
+  document.getElementById('uv-stretchx').value = 100; document.getElementById('uv-stretchx-val').textContent = '100';
+  document.getElementById('uv-stretchy').value = 100; document.getElementById('uv-stretchy-val').textContent = '100';
+  document.getElementById('uv-offx').value = 50; document.getElementById('uv-offx-val').textContent = '50';
+  document.getElementById('uv-offy').value = 50; document.getElementById('uv-offy-val').textContent = '50';
+  document.getElementById('uv-rotate').value = 0; document.getElementById('uv-rotate-val').textContent = '0';
+
+  /* Salva stato originale */
+  const mats = zone.isCerniera ? (zone.allMaterials || [zone.material]) : [zone.material];
+  const origData = mats.map(m => ({ mat: m, map: m.map, color: m.color.clone() }));
+
+  /* Applica texture */
+  mats.forEach(m => {
+    m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
+  });
+
+  const entry = { id: Date.now(), name: filename, zone, mats, tex, origData, aspect: imgAspect, meshAspect, uvAspect: 1, autoScale };
+  textureLayers.push(entry);
+  activeTextureEntry = entry;
+  renderLogoList();
+}
+
+function removeTextureLayer(entry) {
+  /* Ripristina materiali originali */
+  entry.origData.forEach(({ mat, map, color }) => {
+    mat.map = map || null; mat.color.copy(color); mat.needsUpdate = true;
+  });
+  entry.tex.dispose();
+  const idx = textureLayers.indexOf(entry);
+  if (idx >= 0) textureLayers.splice(idx, 1);
+  renderTextureLayersList();
+}
+
+function renderTextureLayersList() {
+  const el = document.getElementById('logo-layers'); el.innerHTML = '';
+  /* Mostra sia texture layers che logo layers normali */
+  const allEntries = [
+    ...textureLayers.map(e => ({ ...e, isTexture: true })),
+    ...S.logoLayers.map(e => ({ ...e, isTexture: false }))
+  ];
+  if (!allEntries.length) { el.innerHTML = '<p style="color:var(--muted);font-size:11px;margin-top:8px">Nessun logo inserito</p>'; return; }
+  textureLayers.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'layer-row';
+    d.innerHTML = `<span class="layer-name" title="${e.name}">🖼 ${e.name} → ${e.zone.displayName}</span>
+      <button class="layer-icon li-del" title="Rimuovi" style="color:var(--red)">✕</button>`;
+    d.querySelector('.li-del').addEventListener('click', () => removeTextureLayer(e));
+    el.appendChild(d);
+  });
+}
+
+const logoDrop = document.getElementById('logo-drop'), logoFile = document.getElementById('logo-file');
+logoDrop.addEventListener('click',     ()  => logoFile.click());
+logoDrop.addEventListener('dragover',  e   => { e.preventDefault(); logoDrop.style.borderColor='var(--accent)'; });
+logoDrop.addEventListener('dragleave', ()  => { logoDrop.style.borderColor=''; });
+logoDrop.addEventListener('drop',      e   => { e.preventDefault(); logoDrop.style.borderColor=''; processLogoFile(e.dataTransfer.files[0]); });
+logoFile.addEventListener('change',    e   => { if (e.target.files[0]) processLogoFile(e.target.files[0]); logoFile.value=''; });
+
+function processLogoFile(file) {
+  if (!file) return;
+  if (file.size > 5*1024*1024) { alert('File troppo grande (max 5 MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      if (textureModeActive) {
+        applyTextureToZone(img, file.name);
+      } else {
+        addLogoLayer(img, file.name);
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function addLogoLayer(img, filename) {
+  if (!S.model) { alert('Carica prima un modello 3D.'); return; }
+  const sizePx = parseInt(document.getElementById('l-size').value);
+  const hit    = getDefaultSurfaceHit();
+  if (!hit) return;
+  const { posLocal, normLocal } = worldHitToLocal(hit.positionWorld, hit.normalWorld);
+  const texture = makeLogoTexture(img);
+  const n = S.logoLayers.length + 1;
+  const layer = {
+    id: Date.now(), name: filename, img,
+    label: `Logo ${n}`,
+    visible: true, locked: false,
+    aspect: img.naturalWidth / img.naturalHeight,
+    sizePx, texture, hitMesh: hit.hitMesh,
+    positionLocal: posLocal, normalLocal: normLocal,
+    rotation: 0, decalMesh: null,
+    offsetX: 0, offsetY: 0,
+  };
+  buildDecal(layer);
+  /* Reset slider offset */
+  document.getElementById('l-offx').value = 0; document.getElementById('l-offx-val').textContent = '0';
+  document.getElementById('l-offy').value = 0; document.getElementById('l-offy-val').textContent = '0';
+  S.logoLayers.push(layer); S.selectedLayer = layer; renderLogoList();
+}
+
+function renderLogoList() {
+  const el = document.getElementById('logo-layers'); el.innerHTML = '';
+  const hasAny = S.logoLayers.length || textureLayers.length;
+  if (!hasAny) { el.innerHTML = '<p style="color:var(--muted);font-size:11px;margin-top:8px">Nessun logo inserito</p>'; return; }
+
+  /* Texture UV layers */
+  textureLayers.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'layer-row' + (activeTextureEntry === e ? ' layer-sel' : '');
+    d.innerHTML = `<span class="layer-name" title="${e.name}">🖼 ${e.name}</span>
+      <button class="layer-icon li-del" title="Rimuovi" style="color:var(--red)">✕</button>`;
+    d.querySelector('.layer-name').addEventListener('click', () => {
+      activeTextureEntry = e;
+      /* Ripristina slider con valori attuali della texture */
+      const scaleX = e.tex.repeat.x;
+      document.getElementById('uv-scale').value = scaleX;
+      document.getElementById('uv-scale-val').textContent = scaleX.toFixed(1);
+      document.getElementById('uv-offx').value = Math.round(e.tex.offset.x * 100);
+      document.getElementById('uv-offx-val').textContent = Math.round(e.tex.offset.x * 100);
+      document.getElementById('uv-offy').value = Math.round(e.tex.offset.y * 100);
+      document.getElementById('uv-offy-val').textContent = Math.round(e.tex.offset.y * 100);
+      const rotateDeg = Math.round(e.tex.rotation * 180 / Math.PI);
+      document.getElementById('uv-rotate').value = rotateDeg;
+      document.getElementById('uv-rotate-val').textContent = rotateDeg;
+      renderLogoList();
+    });
+    d.querySelector('.li-del').addEventListener('click', () => {
+      if (activeTextureEntry === e) activeTextureEntry = null;
+      removeTextureLayer(e);
+    });
+    el.appendChild(d);
+  });
+
+  /* Decal logo layers */
+  S.logoLayers.forEach(l => {
+    const sel = S.selectedLayer === l;
+    const d = document.createElement('div');
+    d.className = 'layer-row' + (sel ? ' layer-sel' : '') + (!l.visible ? ' layer-hidden' : '');
+    d.innerHTML = `
+      <span class="layer-name" title="${l.name}">${l.name}</span>
+      <button class="layer-icon li-eye"  title="${l.visible ? 'Nascondi' : 'Mostra'}">${l.visible ? '👁' : '🚫'}</button>
+      <button class="layer-icon li-lock" title="${l.locked ? 'Sblocca' : 'Blocca'}" style="background:${l.locked ? '#e74c3c' : '#27ae60'};color:#fff;border-radius:4px">${l.locked ? '🔒' : '🔓'}</button>
+      <button class="layer-icon li-del"  title="Elimina" style="color:var(--red)">✕</button>`;
+    d.querySelector('.layer-name').addEventListener('click', () => {
+      if (l.locked) return;
+      S.selectedLayer = l;
+      const ox = Math.round((l.offsetX || 0) * 100);
+      const oy = Math.round((l.offsetY || 0) * 100);
+      document.getElementById('l-offx').value = ox; document.getElementById('l-offx-val').textContent = ox;
+      document.getElementById('l-offy').value = oy; document.getElementById('l-offy-val').textContent = oy;
+      renderTextList(); renderLogoList();
+    });
+    d.querySelector('.li-eye').addEventListener('click', e => {
+      e.stopPropagation(); l.visible = !l.visible; buildDecal(l); renderLogoList();
+    });
+    d.querySelector('.li-lock').addEventListener('click', e => {
+      e.stopPropagation(); l.locked = !l.locked;
+      if (l.locked && S.selectedLayer === l) S.selectedLayer = null;
+      renderTextList(); renderLogoList();
+    });
+    d.querySelector('.li-del').addEventListener('click', e => {
+      e.stopPropagation(); deleteLayer(l);
+    });
+    el.appendChild(d);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LAYER HELPERS
+───────────────────────────────────────────────────────────── */
+function deleteLayer(layer) {
+  if (S.selectedLayer === layer) S.selectedLayer = null;
+  if (layer.decalMesh) {
+    if (layer.decalMesh.parent) layer.decalMesh.parent.remove(layer.decalMesh);
+    layer.decalMesh.geometry.dispose();
+    layer.decalMesh.material.dispose();
+    layer.decalMesh = null;
+  }
+  if (layer.texture) layer.texture.dispose();
+  S.textLayers = S.textLayers.filter(x => x.id !== layer.id);
+  S.logoLayers = S.logoLayers.filter(x => x.id !== layer.id);
+  renderTextList(); renderLogoList();
+}
+
+/* stub — Livelli panel removed, lists are now inline in each tab */
+function renderLayerList() {}
+
+/* ─────────────────────────────────────────────────────────────
+   RENDER CONTROLS
+───────────────────────────────────────────────────────────── */
+document.getElementById('btn-reset-cam').addEventListener('click', () => {
+  const cfg = MODEL_CFG[document.getElementById('sel-model').value]||{};
+  camera.position.copy(cfg.camPos||new THREE.Vector3(0,.6,2.8));
+  controls.target.copy(cfg.target||new THREE.Vector3(0,.3,0));
+  controls.update(); if (S.model) S.model.rotation.y = 0;
+});
+function togBind(id, cb) { const el=document.getElementById(id); if (!el) return; el.addEventListener('click',()=>{ el.classList.toggle('on'); cb(el.classList.contains('on')); }); }
+togBind('tog-color-all', on => { colorAllActive = on; });
+
+
+/* ─────────────────────────────────────────────────────────────
+   TABS
+───────────────────────────────────────────────────────────── */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(x => x.classList.remove('active'));
+    t.classList.add('active'); document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   MODEL SELECT
+───────────────────────────────────────────────────────────── */
+document.getElementById('sel-model').addEventListener('change', e => loadModel(e.target.value));
+loadModel('Canotta ELLE.draco.glb');
+
+/* ─────────────────────────────────────────────────────────────
+   PDF EXPORT
+───────────────────────────────────────────────────────────── */
+document.getElementById('btn-pdf').addEventListener('click', exportPDF);
+
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) { alert('Libreria PDF non disponibile.'); return; }
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, M=14; let y=0;
+  const setDark=(r,g,b)=>doc.setTextColor(r,g,b);
+  const section=(title,yPos)=>{
+    doc.setFillColor(18,22,45); doc.rect(M,yPos,W-M*2,9,'F');
+    doc.setTextColor(79,142,247); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text(title,M+4,yPos+6.2); return yPos+13;
+  };
+
+  doc.setFillColor(10,10,20); doc.rect(0,0,W,42,'F');
+  doc.setTextColor(79,142,247); doc.setFontSize(24); doc.setFont('helvetica','bold'); doc.text('SPORT',M,22);
+  doc.setTextColor(240,240,255); doc.setFontSize(24); doc.text('CONFIG',M+30,22);
+  doc.setTextColor(140,140,180); doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+  doc.text('Configuratore 3D Professionale — Scheda Ordine',M,31);
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const orderNum=`ORD-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  doc.setTextColor(140,140,180); doc.setFontSize(8);
+  doc.text(`Data: ${dateStr}`,W-M-55,24); doc.text(`N° Ordine: ${orderNum}`,W-M-55,31);
+  y=48;
+
+  renderer.render(scene,camera);
+  const imgData=renderer.domElement.toDataURL('image/png');
+  const iW=108, iH=iW*renderer.domElement.height/renderer.domElement.width, iX=(W-iW)/2;
+  doc.setFillColor(5,5,12); doc.roundedRect(iX-2,y-2,iW+4,iH+4,3,3,'F');
+  doc.addImage(imgData,'PNG',iX,y,iW,iH);
+  const mdlLabel=document.getElementById('sel-model').options[document.getElementById('sel-model').selectedIndex].text;
+  doc.setTextColor(120,120,150); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(mdlLabel,W/2,y+iH+5.5,{align:'center'}); y+=iH+10;
+
+  y=section('ZONE COLORE',y);
+  if (S.zones.length) {
+    S.zones.forEach(z => {
+      if (z.hidden) return;
+      const hex=z.color.replace('#','');
+      const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+      doc.setFillColor(r,g,b); doc.roundedRect(M,y,10,8,2,2,'F');
+      doc.setDrawColor(160,160,200); doc.roundedRect(M,y,10,8,2,2,'S');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); setDark(50,55,80);
+      doc.text(z.displayName,M+14,y+5.5);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setDark(100,100,140);
+      doc.text(z.color.toUpperCase(),M+80,y+5.5); y+=11;
+    });
+  } else { setDark(120,120,150); doc.setFontSize(9); doc.text('Nessuna zona configurata',M+4,y+5); y+=11; }
+  y+=3;
+
+  if (S.textLayers.length) {
+    y=section('PERSONALIZZAZIONE TESTO',y);
+    S.textLayers.forEach(l => {
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); setDark(50,55,80);
+      doc.text(`"${l.text}"`,M+4,y+5);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); setDark(100,100,140);
+      doc.text(`Font: ${l.font}  ·  Dimensione: ${l.size}px  ·  Colore: ${l.color.toUpperCase()}`,M+4,y+10);
+      y+=15;
+    }); y+=2;
+  }
+  if (S.logoLayers.length) {
+    y=section('LOGHI',y);
+    S.logoLayers.forEach(l => { doc.setFont('helvetica','normal'); doc.setFontSize(9); setDark(50,55,80); doc.text(l.name,M+4,y+5); y+=11; });
+    y+=2;
+  }
+
+  const PH=297;
+  doc.setFillColor(10,10,20); doc.rect(0,PH-16,W,16,'F');
+  doc.setTextColor(90,95,130); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.text('Generato da SportConfig — Configuratore 3D Professionale',W/2,PH-8.5,{align:'center'});
+  doc.text(dateStr,M,PH-8.5); doc.text(orderNum,W-M,PH-8.5,{align:'right'});
+  doc.save(`SportConfig_ordine_${dateStr.replace(/\//g,'-')}.pdf`);
+}
+
+</script>
+</body>
+</html>
