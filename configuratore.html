@@ -1867,17 +1867,16 @@ document.getElementById('sel-model').addEventListener('change', e => loadModel(e
     return;
   }
   try {
-    const res = await fetch(cfgUrl);
+    const res = await fetch(cfgUrl, { mode: 'cors' });
     const cfg = await res.json();
     /* Carica modello */
     document.getElementById('sel-model').value = cfg.model;
+    loadModel(cfg.model);
+    /* Aspetta che il modello sia caricato E le zone estratte */
     await new Promise(resolve => {
-      const orig = loadModel;
-      loadModel(cfg.model);
-      /* Aspetta che il modello sia caricato */
       const check = setInterval(() => {
-        if (S.model) { clearInterval(check); resolve(); }
-      }, 200);
+        if (S.model && S.zones.length > 0) { clearInterval(check); resolve(); }
+      }, 300);
     });
     /* Applica colori zone */
     if (cfg.zones) {
@@ -1928,7 +1927,6 @@ async function saveConfiguration() {
     const configState = {
       model: modelFile,
       modelLabel,
-      screenshot: imgData,
       zones: S.zones.filter(z => !z.hidden).map(z => ({
         name: z.displayName,
         color: z.color,
