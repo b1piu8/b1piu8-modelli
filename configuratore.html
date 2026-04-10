@@ -1909,20 +1909,75 @@ window.addEventListener('message', async function(e) {
         img.src = t.imgSrc;
       });
     }
-    /* Ripristina loghi decal */
+    /* Ripristina loghi decal con posizione, scala e rotazione originali */
     if (cfg.logos && cfg.logos.length) {
       cfg.logos.forEach(l => {
         if (!l.imgSrc) return;
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload = () => { addLogoLayer(img, l.name); };
+        img.onload = () => {
+          if (!S.model) return;
+          const texture = makeLogoTexture(img);
+          const n = S.logoLayers.length + 1;
+          /* Ripristina positionLocal e normalLocal come THREE.Vector3 */
+          const posLocal  = l.positionLocal  ? new THREE.Vector3(l.positionLocal.x,  l.positionLocal.y,  l.positionLocal.z)  : null;
+          const normLocal = l.normalLocal     ? new THREE.Vector3(l.normalLocal.x,    l.normalLocal.y,    l.normalLocal.z)    : null;
+          if (!posLocal || !normLocal) return;
+          /* Trova la hitMesh per nome */
+          let hitMesh = null;
+          if (l.hitMeshName) S.model.traverse(c => { if (c.name === l.hitMeshName) hitMesh = c; });
+          if (!hitMesh) { S.model.traverse(c => { if (c.isMesh && !c.userData.isDecal && !c.userData.isBackface && !hitMesh) hitMesh = c; }); }
+          const layer = {
+            id: Date.now() + Math.random(),
+            name: l.name, img, label: `Logo ${n}`,
+            visible: true, locked: false,
+            aspect: img.naturalWidth / img.naturalHeight,
+            sizePx: l.sizePx || 120,
+            texture, hitMesh,
+            positionLocal: posLocal,
+            normalLocal: normLocal,
+            rotation: l.rotation || 0,
+            offsetX: l.offsetX || 0,
+            offsetY: l.offsetY || 0,
+            decalMesh: null,
+          };
+          buildDecal(layer);
+          S.logoLayers.push(layer);
+          S.selectedLayer = layer;
+          renderLogoList();
+        };
         img.src = l.imgSrc;
       });
     }
-    /* Ripristina testi */
+    /* Ripristina testi con tutti i parametri di stile */
     if (cfg.texts && cfg.texts.length) {
       cfg.texts.forEach(t => {
-        addTextLayer(t.text, t.font || 'Arial Black', 60, t.color || '#ffffff');
+        if (!t.text) return;
+        const hit = getDefaultSurfaceHit();
+        if (!hit) return;
+        const { posLocal, normLocal } = worldHitToLocal(hit.positionWorld, hit.normalWorld);
+        const strokeEnabled = t.strokeEnabled !== undefined ? t.strokeEnabled : true;
+        const strokeColor   = t.strokeColor || '#000000';
+        const weight        = t.weight || 'bold';
+        const strokeWidth   = t.strokeWidth || 7;
+        const color         = t.color || '#ffffff';
+        const font          = t.font || 'Arial Black';
+        const sizePx        = t.sizePx || 60;
+        const texture = makeTextTexture(t.text, font, color, strokeEnabled, strokeColor, weight, strokeWidth);
+        const layer = {
+          id: Date.now() + Math.random(),
+          text: t.text, font, color, size: sizePx, sizePx,
+          strokeEnabled, strokeColor, weight, strokeWidth,
+          label: `Testo`,
+          visible: true, locked: false,
+          texture, hitMesh: hit.hitMesh,
+          positionLocal: posLocal, normalLocal: normLocal,
+          rotation: 0, decalMesh: null,
+        };
+        buildDecal(layer);
+        S.textLayers.push(layer);
+        S.selectedLayer = layer;
+        renderTextList();
       });
     }
   }
@@ -1995,8 +2050,8 @@ async function saveConfiguration() {
         rotation: l.rotation,
         offsetX: l.offsetX,
         offsetY: l.offsetY,
-        positionLocal: l.positionLocal,
-        normalLocal: l.normalLocal,
+        positionLocal: l.positionLocal ? { x: l.positionLocal.x, y: l.positionLocal.y, z: l.positionLocal.z } : null,
+        normalLocal: l.normalLocal ? { x: l.normalLocal.x, y: l.normalLocal.y, z: l.normalLocal.z } : null,
         hitMeshName: l.hitMesh ? l.hitMesh.name : null,
       })),
       textures: textureLayers.map(e => {
@@ -2083,20 +2138,43 @@ async function saveConfiguration() {
 
     viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html`;
 
-    /* 4 — Invia dati al modulo genitore via postMessage */
-    window.parent.postMessage({
+    /* 4 — Invia dati al modulo genitore via postMessage
+         IMPORTANTE: il payload deve contenere SOLO primitivi JSON.
+         - positionLocal/normalLocal sono già serializzati come {x,y,z} sopra
+         - screenshot compresso a JPEG per ridurre dimensioni
+         - imgSrc base64 residui rimossi (già su Supabase come URL)
+    */
+    let screenshotForMsg = '';
+    if (imgData) {
+      try {
+        const tmpCanvas = document.createElement('canvas');
+        const tmpImg = new Image();
+        await new Promise(resolve => { tmpImg.onload = resolve; tmpImg.src = imgData; });
+        tmpCanvas.width = Math.min(tmpImg.width, 800);
+        tmpCanvas.height = Math.round(tmpImg.height * (tmpCanvas.width / tmpImg.width));
+        tmpCanvas.getContext('2d').drawImage(tmpImg, 0, 0, tmpCanvas.width, tmpCanvas.height);
+        screenshotForMsg = tmpCanvas.toDataURL('image/jpeg', 0.5);
+      } catch(e) { screenshotForMsg = ''; }
+    }
+    /* Rimuovi imgSrc base64 dal payload (già caricati su Supabase) */
+    const safeLogos = configState.logos.map(l => ({
+      ...l, imgSrc: (l.imgSrc && !l.imgSrc.startsWith('data:')) ? l.imgSrc : null,
+    }));
+    const safeTextures = configState.textures.map(t => ({
+      ...t, imgSrc: (t.imgSrc && !t.imgSrc.startsWith('data:')) ? t.imgSrc : null,
+    }));
+    /* JSON.parse/stringify come safety net finale per eliminare qualsiasi non-primitivo */
+    const msgPayload = JSON.parse(JSON.stringify({
       type: 'CONFIGURAZIONE_SALVATA',
-      configId,
-      configUrl,
-      viewerUrl,
-      screenshot: imgData,
-      model: modelFile,
-      modelLabel,
+      configId, configUrl, viewerUrl,
+      screenshot: screenshotForMsg,
+      model: modelFile, modelLabel,
       zones: configState.zones,
       texts: configState.texts,
-      logos: configState.logos,
-      textures: configState.textures,
-    }, '*');
+      logos: safeLogos,
+      textures: safeTextures,
+    }));
+    window.parent.postMessage(msgPayload, '*');
 
     btn.textContent = '✅ Salvato!';
     setTimeout(() => {
