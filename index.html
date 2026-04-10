@@ -279,57 +279,7 @@
       <iframe id="configurator-frame" src="" style="flex:1;border:none;width:100%;height:100%"></iframe>
     </div>
 
-    <script>
-      /* ID del prodotto correntemente in configurazione */
-      let configuratorProdId = null;
-
-      function openConfigurator(prodId) {
-        configuratorProdId = prodId;
-        const m = document.getElementById('configurator-modal');
-        m.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        /* Ricarica sempre l'iframe così ogni articolo parte pulito */
-        document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
-      }
-
-      function closeConfigurator() {
-        document.getElementById('configurator-modal').style.display = 'none';
-        document.getElementById('configurator-frame').src = '';
-        document.body.style.overflow = '';
-        configuratorProdId = null;
-      }
-
-      /* Ricevi dati dal configuratore e collegali all'articolo corretto */
-      window.addEventListener('message', e => {
-        if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA' && configuratorProdId !== null) {
-          const p = prods.find(x => x.id === configuratorProdId);
-          if (p) {
-            p.configurazione = e.data;
-            renderProdConfigPreview(configuratorProdId);
-          }
-          closeConfigurator();
-        }
-      });
-
-      function renderProdConfigPreview(prodId) {
-        const p = prods.find(x => x.id === prodId);
-        const el = document.getElementById('cfg_preview_'+prodId);
-        if (!el) return;
-        if (!p || !p.configurazione) { el.style.display = 'none'; return; }
-        const cfg = p.configurazione;
-        const zonesHtml = (cfg.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join(' ');
-        const textsHtml = (cfg.texts||[]).length ? ' · '+cfg.texts.map(t=>'"'+t.text+'"').join(', ') : '';
-        const screenshotHtml = cfg.screenshot ? '<img src="'+cfg.screenshot+'" style="height:44px;border-radius:4px;border:1px solid #e2d9c8;flex-shrink:0">' : '';
-        el.style.display = 'block';
-        el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:7px 10px;margin-top:6px">'+screenshotHtml+'<div style="flex:1;min-width:0"><div style="font-size:0.8rem;font-weight:600;color:#1a1208">✓ '+cfg.modelLabel+'</div><div style="font-size:0.72rem;color:#6a7a52;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+zonesHtml+textsHtml+'</div></div><button onclick="openConfigurator('+prodId+')" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;white-space:nowrap">✏️ Modifica</button><button onclick="removeProdConfig('+prodId+')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1rem;padding:0 4px">✕</button></div>';
-      }
-
-      function removeProdConfig(prodId) {
-        const p = prods.find(x => x.id === prodId);
-        if (p) p.configurazione = null;
-        renderProdConfigPreview(prodId);
-      }
-    </script>
+    <script>/* configuratore: funzioni definite nello script principale in fondo */</script>
 
     <div class="section-title">Note aggiuntive</div>
     <div class="field">
@@ -1185,6 +1135,50 @@ async function _generateCfgPdf(cfg, o, p) {
 function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ---- CONFIGURATORE PER ARTICOLO ----
+let configuratorProdId = null;
+
+function openConfigurator(prodId) {
+  configuratorProdId = prodId;
+  document.getElementById('configurator-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
+}
+
+function closeConfigurator() {
+  document.getElementById('configurator-modal').style.display = 'none';
+  document.getElementById('configurator-frame').src = '';
+  document.body.style.overflow = '';
+  configuratorProdId = null;
+}
+
+window.addEventListener('message', e => {
+  if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA' && configuratorProdId !== null) {
+    const p = prods.find(x => x.id === configuratorProdId);
+    if (p) { p.configurazione = e.data; renderProdConfigPreview(configuratorProdId); }
+    closeConfigurator();
+  }
+});
+
+function renderProdConfigPreview(prodId) {
+  const p = prods.find(x => x.id === prodId);
+  const el = document.getElementById('cfg_preview_'+prodId);
+  if (!el) return;
+  if (!p || !p.configurazione) { el.style.display = 'none'; return; }
+  const cfg = p.configurazione;
+  const zonesHtml = (cfg.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join(' ');
+  const textsHtml = (cfg.texts||[]).length ? ' · '+cfg.texts.map(t=>'"'+t.text+'"').join(', ') : '';
+  const screenshotHtml = cfg.screenshot ? '<img src="'+cfg.screenshot+'" style="height:44px;border-radius:4px;border:1px solid #e2d9c8;flex-shrink:0">' : '';
+  el.style.display = 'block';
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:7px 10px;margin-top:6px">'+screenshotHtml+'<div style="flex:1;min-width:0"><div style="font-size:0.8rem;font-weight:600;color:#1a1208">✓ '+cfg.modelLabel+'</div><div style="font-size:0.72rem;color:#6a7a52;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+zonesHtml+textsHtml+'</div></div><button onclick="openConfigurator('+prodId+')" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;white-space:nowrap">✏️ Modifica</button><button onclick="removeProdConfig('+prodId+')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1rem;padding:0 4px">✕</button></div>';
+}
+
+function removeProdConfig(prodId) {
+  const p = prods.find(x => x.id === prodId);
+  if (p) p.configurazione = null;
+  renderProdConfigPreview(prodId);
 }
 
 updateBadge();
