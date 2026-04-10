@@ -1870,6 +1870,7 @@ window.addEventListener('message', async function(e) {
         if (S.model && S.zones.length > 0) { clearInterval(check); resolve(); }
       }, 300);
     });
+    /* Applica colori zone */
     if (cfg.zones) {
       cfg.zones.forEach(z => {
         const zone = S.zones.find(sz => sz.displayName === z.name);
@@ -1881,6 +1882,42 @@ window.addEventListener('message', async function(e) {
         }
       });
       renderZones();
+    }
+    /* Ripristina texture UV */
+    if (cfg.textures && cfg.textures.length) {
+      cfg.textures.forEach(t => {
+        if (!t.imgSrc) return;
+        const img = new Image();
+        img.onload = () => {
+          /* Trova la zona per nome */
+          const zoneIdx = S.zones.findIndex(z => z.displayName === t.zoneName);
+          if (zoneIdx < 0) return;
+          S.activeZone = zoneIdx;
+          applyTextureToZone(img, t.name);
+          /* Ripristina parametri texture */
+          if (activeTextureEntry) {
+            activeTextureEntry.mats.forEach(m => {
+              if (m.map) {
+                m.map.repeat.set(t.repeatX, t.repeatY);
+                m.map.offset.set(t.offsetX, t.offsetY);
+                m.map.rotation = t.rotation;
+                m.map.center.set(0.5, 0.5);
+                m.map.needsUpdate = true;
+              }
+            });
+          }
+        };
+        img.src = t.imgSrc;
+      });
+    }
+    /* Ripristina loghi decal */
+    if (cfg.logos && cfg.logos.length) {
+      cfg.logos.forEach(l => {
+        if (!l.imgSrc) return;
+        const img = new Image();
+        img.onload = () => { addLogoLayer(img, l.name); };
+        img.src = l.imgSrc;
+      });
     }
   }
 });
@@ -1942,15 +1979,83 @@ async function saveConfiguration() {
         color: l.color,
         strokeColor: l.strokeColor,
         strokeEnabled: l.strokeEnabled,
+        weight: l.weight,
+        strokeWidth: l.strokeWidth,
       })),
-      logos: S.logoLayers.map(l => ({ name: l.name })),
+      logos: S.logoLayers.map(l => ({
+        name: l.name,
+        imgSrc: l.img ? l.img.src : null,
+        sizePx: l.sizePx,
+        rotation: l.rotation,
+        offsetX: l.offsetX,
+        offsetY: l.offsetY,
+        positionLocal: l.positionLocal,
+        normalLocal: l.normalLocal,
+        hitMeshName: l.hitMesh ? l.hitMesh.name : null,
+      })),
+      textures: textureLayers.map(e => {
+        /* Estrai immagine dalla texture come DataURL */
+        let imgSrc = null;
+        try {
+          const cnv = e.tex.image;
+          if (cnv && cnv.toDataURL) imgSrc = cnv.toDataURL('image/png');
+        } catch(err) {}
+        return {
+          name: e.name,
+          imgSrc,
+          zoneName: e.zone ? e.zone.displayName : null,
+          repeatX: e.tex ? e.tex.repeat.x : 1,
+          repeatY: e.tex ? e.tex.repeat.y : 1,
+          offsetX: e.tex ? e.tex.offset.x : 0,
+          offsetY: e.tex ? e.tex.offset.y : 0,
+          rotation: e.tex ? e.tex.rotation : 0,
+        };
+      }),
     };
 
-    /* 3 — Salva JSON su Supabase storage (opzionale) */
+    /* 3 — Carica immagini su Supabase storage */
     const configId = `cfg-${Date.now()}`;
     let configUrl = '';
     let viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html`;
 
+    /* Funzione helper per caricare una immagine DataURL su Supabase */
+    async function uploadImgToSupabase(dataUrl, path) {
+      try {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${path}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': blob.type || 'image/png',
+            'x-upsert': 'true',
+          },
+          body: blob,
+        });
+        if (uploadRes.ok) {
+          return `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${path}`;
+        }
+      } catch(e) { console.warn('Upload immagine fallito:', e); }
+      return null;
+    }
+
+    /* Carica immagini texture UV */
+    for (const t of configState.textures) {
+      if (t.imgSrc && t.imgSrc.startsWith('data:')) {
+        const url = await uploadImgToSupabase(t.imgSrc, `configurazioni/${configId}-tex-${configState.textures.indexOf(t)}.png`);
+        if (url) t.imgSrc = url;
+      }
+    }
+
+    /* Carica immagini logo */
+    for (const l of configState.logos) {
+      if (l.imgSrc && l.imgSrc.startsWith('data:')) {
+        const url = await uploadImgToSupabase(l.imgSrc, `configurazioni/${configId}-logo-${configState.logos.indexOf(l)}.png`);
+        if (url) l.imgSrc = url;
+      }
+    }
+
+    /* Salva JSON configurazione su Supabase */
     try {
       const jsonBlob = new Blob([JSON.stringify(configState)], { type: 'application/json' });
       const jsonPath = `configurazioni/${configId}.json`;
@@ -1967,12 +2072,10 @@ async function saveConfiguration() {
         configUrl = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${jsonPath}`;
       }
     } catch(e) {
-      console.warn('Upload Supabase non riuscito:', e);
+      console.warn('Upload JSON config fallito:', e);
     }
 
-    /* Costruisci viewerUrl con config inline in Base64 (non dipende da CORS) */
-    const configBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(configState))));
-    viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfgdata=${encodeURIComponent(configBase64)}`;
+    viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html`;
 
     /* 4 — Invia dati al modulo genitore via postMessage */
     window.parent.postMessage({
@@ -1986,6 +2089,7 @@ async function saveConfiguration() {
       zones: configState.zones,
       texts: configState.texts,
       logos: configState.logos,
+      textures: configState.textures,
     }, '*');
 
     btn.textContent = '✅ Salvato!';
