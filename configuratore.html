@@ -1858,39 +1858,18 @@ document.querySelectorAll('.tab').forEach(t => {
 ───────────────────────────────────────────────────────────── */
 document.getElementById('sel-model').addEventListener('change', e => loadModel(e.target.value));
 
-/* Carica configurazione salvata se presente nell'URL */
-(async function loadSavedConfig() {
-  const params = new URLSearchParams(window.location.search);
-  const cfgData = params.get('cfgdata');
-  const cfgUrl = params.get('cfg');
-
-  if (!cfgData && !cfgUrl) {
-    loadModel('Canotta ELLE.draco.glb');
-    return;
-  }
-
-  try {
-    let cfg;
-    if (cfgData) {
-      /* Configurazione inline in Base64 */
-      const json = decodeURIComponent(escape(atob(cfgData)));
-      cfg = JSON.parse(json);
-    } else {
-      /* Configurazione da URL remoto */
-      const res = await fetch(cfgUrl, { mode: 'cors' });
-      cfg = await res.json();
-    }
-
-    /* Carica modello */
+/* Ascolta messaggi dal parent per caricare una configurazione */
+window.addEventListener('message', async function(e) {
+  if (e.data && e.data.type === 'CARICA_CONFIGURAZIONE') {
+    const cfg = e.data.config;
+    if (!cfg) return;
     document.getElementById('sel-model').value = cfg.model;
     loadModel(cfg.model);
-    /* Aspetta che il modello sia caricato E le zone estratte */
     await new Promise(resolve => {
       const check = setInterval(() => {
         if (S.model && S.zones.length > 0) { clearInterval(check); resolve(); }
       }, 300);
     });
-    /* Applica colori zone */
     if (cfg.zones) {
       cfg.zones.forEach(z => {
         const zone = S.zones.find(sz => sz.displayName === z.name);
@@ -1903,10 +1882,24 @@ document.getElementById('sel-model').addEventListener('change', e => loadModel(e
       });
       renderZones();
     }
-  } catch(e) {
-    console.warn('Errore caricamento configurazione:', e);
-    loadModel('Canotta ELLE.draco.glb');
   }
+});
+
+/* Carica configurazione salvata se presente nell'URL */
+(async function loadSavedConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const cfgData = params.get('cfgdata');
+  const cfgUrl = params.get('cfg');
+
+  loadModel('Canotta ELLE.draco.glb');
+
+  /* Aspetta che il modello sia caricato poi segnala al parent che siamo pronti */
+  const readyCheck = setInterval(() => {
+    if (S.model) {
+      clearInterval(readyCheck);
+      window.parent.postMessage({ type: 'CONFIGURATORE_PRONTO' }, '*');
+    }
+  }, 300);
 })();
 
 /* ─────────────────────────────────────────────────────────────
