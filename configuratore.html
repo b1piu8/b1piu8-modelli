@@ -1912,9 +1912,14 @@ async function saveConfiguration() {
   btn.disabled = true;
 
   try {
-    /* 1 — Cattura screenshot del modello */
-    renderer.render(scene, camera);
-    const imgData = renderer.domElement.toDataURL('image/png');
+    /* 1 — Cattura screenshot del modello (opzionale, può fallire in iframe cross-origin) */
+    let imgData = '';
+    try {
+      renderer.render(scene, camera);
+      imgData = renderer.domElement.toDataURL('image/png');
+    } catch(e) {
+      console.warn('Screenshot non disponibile:', e);
+    }
 
     /* 2 — Raccogli stato configurazione */
     const modelFile = document.getElementById('sel-model').value;
@@ -1938,23 +1943,30 @@ async function saveConfiguration() {
       logos: S.logoLayers.map(l => ({ name: l.name })),
     };
 
-    /* 3 — Salva JSON su Supabase storage */
+    /* 3 — Salva JSON su Supabase storage (opzionale) */
     const configId = `cfg-${Date.now()}`;
-    const jsonBlob = new Blob([JSON.stringify(configState)], { type: 'application/json' });
-    const jsonPath = `configurazioni/${configId}.json`;
+    let configUrl = '';
+    let viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html`;
 
-    await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${jsonPath}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'x-upsert': 'true',
-      },
-      body: jsonBlob,
-    });
-
-    const configUrl = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${jsonPath}`;
-    const viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfg=${encodeURIComponent(configUrl)}`;
+    try {
+      const jsonBlob = new Blob([JSON.stringify(configState)], { type: 'application/json' });
+      const jsonPath = `configurazioni/${configId}.json`;
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${jsonPath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'x-upsert': 'true',
+        },
+        body: jsonBlob,
+      });
+      if (uploadRes.ok) {
+        configUrl = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${jsonPath}`;
+        viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfg=${encodeURIComponent(configUrl)}`;
+      }
+    } catch(e) {
+      console.warn('Upload Supabase non riuscito, continuo senza:', e);
+    }
 
     /* 4 — Invia dati al modulo genitore via postMessage */
     window.parent.postMessage({
