@@ -690,6 +690,7 @@ async function submitOrder() {
     } : null,
     configurazione: savedConfig ? {
       configId: savedConfig.configId,
+      model: savedConfig.model,
       modelLabel: savedConfig.modelLabel,
       screenshot: savedConfig.screenshot,
       zones: savedConfig.zones,
@@ -720,6 +721,7 @@ async function submitOrder() {
       stato: 'Nuovo',
       configurazione: savedConfig ? JSON.stringify({
         configId: savedConfig.configId,
+        model: savedConfig.model,
         modelLabel: savedConfig.modelLabel,
         screenshot: savedConfig.screenshot,
         zones: savedConfig.zones,
