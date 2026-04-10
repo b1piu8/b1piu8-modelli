@@ -689,9 +689,9 @@ async function submitOrder() {
       sdi: document.getElementById('f_sdi').value.trim(),
     } : null,
     configurazione: savedConfig ? {
-      viewerUrl: savedConfig.viewerUrl,
-      screenshot: savedConfig.screenshot,
+      configId: savedConfig.configId,
       modelLabel: savedConfig.modelLabel,
+      screenshot: savedConfig.screenshot,
       zones: savedConfig.zones,
       texts: savedConfig.texts,
       logos: savedConfig.logos,
@@ -719,9 +719,9 @@ async function submitOrder() {
       fattura: order.fatturazione ? JSON.stringify(order.fatturazione) : null,
       stato: 'Nuovo',
       configurazione: savedConfig ? JSON.stringify({
-        viewerUrl: savedConfig.viewerUrl,
-        screenshot: savedConfig.screenshot,
+        configId: savedConfig.configId,
         modelLabel: savedConfig.modelLabel,
+        screenshot: savedConfig.screenshot,
         zones: savedConfig.zones,
         texts: savedConfig.texts,
         logos: savedConfig.logos,
@@ -862,8 +862,12 @@ function renderDash() {
       const zonesHtml = (cfgData.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join('');
       const textsHtml = (cfgData.texts||[]).length ? '<div style="font-size:0.78rem;color:#7a6a52">'+cfgData.texts.map(t=>'"'+t.text+'"').join(', ')+'</div>' : '';
       const screenshotHtml = cfgData.screenshot ? '<img src="'+cfgData.screenshot+'" style="height:50px;border-radius:4px;border:1px solid #e2d9c8">' : '';
-      const vUrl = (cfgData.viewerUrl||'').replace(/'/g, '%27');
-      const viewerBtn = vUrl ? '<button onclick="openViewer3D(\''+vUrl+'\')" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap">🔍 Apri 3D</button>' : '';
+      let viewerBtn = '';
+      if (cfgData.configId) {
+        const cfgUrl = SUPABASE_URL+'/storage/v1/object/public/immagini-ordini/configurazioni/'+cfgData.configId+'.json';
+        const vUrl = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfg='+encodeURIComponent(cfgUrl);
+        viewerBtn = '<button onclick="openViewer3D(\''+vUrl.replace(/'/g,'%27')+'\')" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap">🔍 Apri 3D</button>';
+      }
       cfgBlock = '<div style="margin-bottom:0.85rem"><div class="dkey">Configurazione 3D</div><div style="display:flex;align-items:center;gap:10px;margin-top:6px;background:#f5f0e8;border:1px solid #e2d9c8;border-radius:8px;padding:8px 12px">'+screenshotHtml+'<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">'+(cfgData.modelLabel||'')+'</div><div style="font-size:0.78rem;color:#7a6a52">'+zonesHtml+'</div>'+textsHtml+'</div>'+viewerBtn+'</div></div>';
     }
     return `<div class="order-card" id="c_${o.id}">
