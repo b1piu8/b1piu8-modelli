@@ -878,23 +878,26 @@ function renderDash() {
     const ds = d.toLocaleDateString('it-IT')+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     const bc = {'Nuovo':'s-nuovo','In lavorazione':'s-wip','Completato':'s-done'}[o.status]||'';
     const ph = o.prodotti.map((p, pi)=>{
-      /* Fix immagini: usa solo URL validi (stringa non vuota che inizia con http) */
       const validUrls = (p.immagini_urls||[]).filter(u => u && typeof u === 'string' && u.startsWith('http'));
       const imgs = validUrls.length
         ? `<div class="prow-imgs">${validUrls.map(url=>`<a href="${url}" target="_blank" rel="noopener" style="margin-right:6px;display:inline-block"><img src="${url}" style="height:64px;border-radius:6px;cursor:pointer;border:2px solid #e2d9c8" title="Clicca per aprire" onerror="this.style.display='none'"></a>`).join('')}</div>`
         : (p.immagini?.length ? `<div class="prow-imgs">${p.immagini.map(i=>`<span>🖼 ${i}</span>`).join('')}</div>` : '');
-      /* Configurazione per-articolo */
+      /* Configurazione: cerca prima in p.configurazione (nuovo), poi in o.configurazione (vecchi ordini) */
+      const rawCfg = p.configurazione || (pi === 0 ? o.configurazione : null);
+      const pCfg = rawCfg ? (typeof rawCfg === 'string' ? JSON.parse(rawCfg) : rawCfg) : null;
       let prodCfgBlock = '';
-      const pCfg = p.configurazione ? (typeof p.configurazione === 'string' ? JSON.parse(p.configurazione) : p.configurazione) : null;
       if (pCfg) {
+        /* Salva cfg in registro globale e usa solo la chiave nell'HTML — evita problemi di escape */
+        const cfgKey = `${o.id}_${pi}`;
+        window._cfgRegistry = window._cfgRegistry || {};
+        window._cfgRegistry[cfgKey] = pCfg;
         const pZones = (pCfg.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px;margin-right:5px"><span style="width:7px;height:7px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join('');
-        const pTexts = (pCfg.texts||[]).length ? '<div style="font-size:0.75rem;color:#7a6a52;margin-top:1px">Testi: '+(pCfg.texts.map(t=>'"'+t.text+'"').join(', '))+'</div>' : '';
+        const pTexts = (pCfg.texts||[]).length ? '<div style="font-size:0.75rem;color:#7a6a52;margin-top:1px">Testi: '+pCfg.texts.map(t=>'"'+t.text+'"').join(', ')+'</div>' : '';
         const pLogos = (pCfg.logos||[]).filter(l=>l.imgSrc).map(l=>'<a href="'+l.imgSrc+'" target="_blank" rel="noopener" style="color:#7a8c6e;font-size:0.72rem">'+l.name+'</a>').join(', ');
         const pScreen = pCfg.screenshot ? '<img src="'+pCfg.screenshot+'" style="height:44px;border-radius:4px;border:1px solid #e2d9c8;cursor:pointer;flex-shrink:0" onclick="window.open(this.src)">' : '';
-        const cfgId = o.id+'_'+pi;
-        const pViewerBtn = '<button onclick="openViewer3D('+JSON.stringify(JSON.stringify(pCfg)).replace(/'/g,"&#39;")+')" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">🔍 3D</button>';
-        const pPdfBtn = '<button onclick="exportCfgPdfDirect('+JSON.stringify(JSON.stringify({orderId:o.id,prodIdx:pi,cliente:o.cliente.nome,numero:o.numero}))+')" style="font-size:0.72rem;background:#4f8ef7;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">📄 PDF</button>';
-        prodCfgBlock = '<div style="display:flex;align-items:flex-start;gap:7px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:6px 8px;margin-top:5px">'+pScreen+'<div style="flex:1;min-width:0"><div style="font-size:0.78rem;font-weight:600">⚙ '+( pCfg.modelLabel||'')+'</div><div style="font-size:0.72rem;color:#6a7a52;flex-wrap:wrap">'+pZones+'</div>'+pTexts+(pLogos?'<div style="font-size:0.72rem;color:#7a6a52;margin-top:1px">Loghi: '+pLogos+'</div>':'')+'</div><div style="display:flex;flex-direction:column;gap:3px">'+pViewerBtn+pPdfBtn+'</div></div>';
+        const pViewerBtn = `<button onclick="openViewer3D(window._cfgRegistry['${cfgKey}'])" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">🔍 3D</button>`;
+        const pPdfBtn = `<button onclick="exportCfgPdfByKey('${cfgKey}','${o.id}',${pi})" style="font-size:0.72rem;background:#4f8ef7;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">📄 PDF</button>`;
+        prodCfgBlock = '<div style="display:flex;align-items:flex-start;gap:7px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:6px 8px;margin-top:5px">'+pScreen+'<div style="flex:1;min-width:0"><div style="font-size:0.78rem;font-weight:600">⚙ '+(pCfg.modelLabel||'')+'</div><div style="font-size:0.72rem;color:#6a7a52;flex-wrap:wrap">'+pZones+'</div>'+pTexts+(pLogos?'<div style="font-size:0.72rem;color:#7a6a52;margin-top:1px">Loghi: '+pLogos+'</div>':'')+'</div><div style="display:flex;flex-direction:column;gap:3px">'+pViewerBtn+pPdfBtn+'</div></div>';
       }
       return `<div class="prow">
         <strong>${p.nome||'—'}</strong> — Taglia: <strong>${p.taglia||'—'}</strong> — Qtà: <strong>${p.qta}</strong>${p.colore?' — '+p.colore:''}
@@ -1076,6 +1079,15 @@ function exportCSV() {
   a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
   a.download='ordini_b1piu8_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click(); showToast('📥 CSV scaricato');
+}
+
+async function exportCfgPdfByKey(cfgKey, orderId, prodIdx) {
+  const cfg = window._cfgRegistry && window._cfgRegistry[cfgKey];
+  if (!cfg) { showToast('Configurazione non trovata'); return; }
+  const o = orders.find(x => String(x.id) === String(orderId));
+  if (!o) return;
+  const p = o.prodotti[prodIdx] || {};
+  await _generateCfgPdf(cfg, o, p);
 }
 
 async function exportCfgPdfDirect(metaJson) {

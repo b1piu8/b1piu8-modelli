@@ -2103,13 +2103,18 @@ async function saveConfiguration() {
     /* Funzione helper per caricare una immagine DataURL su Supabase */
     async function uploadImgToSupabase(dataUrl, path) {
       try {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
+        /* Converti dataUrl in Blob senza fetch (fetch su data: URI fallisce in Safari) */
+        const [header, b64] = dataUrl.split(',');
+        const mime = header.match(/:(.*?);/)[1];
+        const binary = atob(b64);
+        const arr = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+        const blob = new Blob([arr], { type: mime });
         const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${path}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': blob.type || 'image/png',
+            'Content-Type': mime,
             'x-upsert': 'true',
           },
           body: blob,
