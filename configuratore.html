@@ -1861,8 +1861,26 @@ document.getElementById('sel-model').addEventListener('change', e => loadModel(e
 /* Ascolta messaggi dal parent per caricare una configurazione */
 window.addEventListener('message', async function(e) {
   if (e.data && e.data.type === 'CARICA_CONFIGURAZIONE') {
-    const cfg = e.data.config;
+    let cfg = e.data.config;
     if (!cfg) return;
+
+    /* Se logos o textures hanno imgSrc mancante, prova a ricaricare il JSON completo da configUrl */
+    const hasLogosMissing = (cfg.logos||[]).some(l => !l.imgSrc);
+    const hasTexMissing   = (cfg.textures||[]).some(t => !t.imgSrc);
+    if ((hasLogosMissing || hasTexMissing) && cfg.configUrl) {
+      try {
+        const fullCfg = await fetch(cfg.configUrl).then(r => r.json());
+        /* Merge: prendi imgSrc dal JSON completo se mancante */
+        if (fullCfg.logos) cfg.logos = fullCfg.logos.map((fl, i) => ({
+          ...(cfg.logos[i] || {}), ...fl,
+          imgSrc: (cfg.logos[i] && cfg.logos[i].imgSrc) || fl.imgSrc || null,
+        }));
+        if (fullCfg.textures) cfg.textures = fullCfg.textures.map((ft, i) => ({
+          ...(cfg.textures[i] || {}), ...ft,
+          imgSrc: (cfg.textures[i] && cfg.textures[i].imgSrc) || ft.imgSrc || null,
+        }));
+      } catch(err) { console.warn('Impossibile ricaricare config da URL:', err); }
+    }
     document.getElementById('sel-model').value = cfg.model;
     loadModel(cfg.model);
     await new Promise(resolve => {
@@ -1915,15 +1933,13 @@ window.addEventListener('message', async function(e) {
         if (!l.imgSrc) return;
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload = () => {
+        const buildLogo = () => {
           if (!S.model) return;
           const texture = makeLogoTexture(img);
           const n = S.logoLayers.length + 1;
-          /* Ripristina positionLocal e normalLocal come THREE.Vector3 */
           const posLocal  = l.positionLocal  ? new THREE.Vector3(l.positionLocal.x,  l.positionLocal.y,  l.positionLocal.z)  : null;
           const normLocal = l.normalLocal     ? new THREE.Vector3(l.normalLocal.x,    l.normalLocal.y,    l.normalLocal.z)    : null;
           if (!posLocal || !normLocal) return;
-          /* Trova la hitMesh per nome */
           let hitMesh = null;
           if (l.hitMeshName) S.model.traverse(c => { if (c.name === l.hitMeshName) hitMesh = c; });
           if (!hitMesh) { S.model.traverse(c => { if (c.isMesh && !c.userData.isDecal && !c.userData.isBackface && !hitMesh) hitMesh = c; }); }
@@ -1932,19 +1948,25 @@ window.addEventListener('message', async function(e) {
             name: l.name, img, label: `Logo ${n}`,
             visible: true, locked: false,
             aspect: img.naturalWidth / img.naturalHeight,
-            sizePx: l.sizePx || 120,
-            texture, hitMesh,
-            positionLocal: posLocal,
-            normalLocal: normLocal,
-            rotation: l.rotation || 0,
-            offsetX: l.offsetX || 0,
-            offsetY: l.offsetY || 0,
+            sizePx: l.sizePx || 120, texture, hitMesh,
+            positionLocal: posLocal, normalLocal: normLocal,
+            rotation: l.rotation || 0, offsetX: l.offsetX || 0, offsetY: l.offsetY || 0,
             decalMesh: null,
           };
           buildDecal(layer);
           S.logoLayers.push(layer);
           S.selectedLayer = layer;
           renderLogoList();
+        };
+        img.onload = buildLogo;
+        img.onerror = () => {
+          /* Se URL Supabase fallisce per CORS, prova via fetch + blob URL */
+          if (l.imgSrc && !l.imgSrc.startsWith('data:')) {
+            fetch(l.imgSrc)
+              .then(r => r.blob())
+              .then(b => { img.onload = buildLogo; img.src = URL.createObjectURL(b); })
+              .catch(() => console.warn('Logo non caricabile:', l.name));
+          }
         };
         img.src = l.imgSrc;
       });
@@ -1968,8 +1990,7 @@ window.addEventListener('message', async function(e) {
           id: Date.now() + Math.random(),
           text: t.text, font, color, size: sizePx, sizePx,
           strokeEnabled, strokeColor, weight, strokeWidth,
-          label: `Testo`,
-          visible: true, locked: false,
+          label: `Testo`, visible: true, locked: false,
           texture, hitMesh: hit.hitMesh,
           positionLocal: posLocal, normalLocal: normLocal,
           rotation: 0, decalMesh: null,
@@ -2139,10 +2160,11 @@ async function saveConfiguration() {
     viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html`;
 
     /* 4 — Invia dati al modulo genitore via postMessage
-         IMPORTANTE: il payload deve contenere SOLO primitivi JSON.
-         - positionLocal/normalLocal sono già serializzati come {x,y,z} sopra
-         - screenshot compresso a JPEG per ridurre dimensioni
-         - imgSrc base64 residui rimossi (già su Supabase come URL)
+         - positionLocal/normalLocal già serializzati come {x,y,z}
+         - screenshot compresso a JPEG 800px max
+         - logos/textures: mantieni imgSrc (URL Supabase o base64 se upload fallito)
+           perché servono per il ripristino nel viewer admin
+         - JSON.parse/stringify come safety net finale
     */
     let screenshotForMsg = '';
     if (imgData) {
@@ -2156,13 +2178,6 @@ async function saveConfiguration() {
         screenshotForMsg = tmpCanvas.toDataURL('image/jpeg', 0.5);
       } catch(e) { screenshotForMsg = ''; }
     }
-    /* Rimuovi imgSrc base64 dal payload (già caricati su Supabase) */
-    const safeLogos = configState.logos.map(l => ({
-      ...l, imgSrc: (l.imgSrc && !l.imgSrc.startsWith('data:')) ? l.imgSrc : null,
-    }));
-    const safeTextures = configState.textures.map(t => ({
-      ...t, imgSrc: (t.imgSrc && !t.imgSrc.startsWith('data:')) ? t.imgSrc : null,
-    }));
     /* JSON.parse/stringify come safety net finale per eliminare qualsiasi non-primitivo */
     const msgPayload = JSON.parse(JSON.stringify({
       type: 'CONFIGURAZIONE_SALVATA',
@@ -2171,8 +2186,8 @@ async function saveConfiguration() {
       model: modelFile, modelLabel,
       zones: configState.zones,
       texts: configState.texts,
-      logos: safeLogos,
-      textures: safeTextures,
+      logos: configState.logos,   /* contengono imgSrc URL Supabase */
+      textures: configState.textures, /* idem */
     }));
     window.parent.postMessage(msgPayload, '*');
 
