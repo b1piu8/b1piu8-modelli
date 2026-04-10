@@ -321,7 +321,7 @@
               </div>
               ${savedConfig.texts.length ? `<div style="font-size:0.8rem;color:#7a6a52">${savedConfig.texts.map(t=>`"${t.text}"`).join(', ')}</div>` : ''}
             </div>
-            <a href="${savedConfig.viewerUrl}" target="_blank" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;text-decoration:none">🔍 Apri 3D</a>
+            <button onclick="openConfigurator()" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer">🔍 Apri 3D</button>
             <button onclick="savedConfig=null;renderConfigPreview()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1.1rem">✕</button>
           </div>`;
       }
