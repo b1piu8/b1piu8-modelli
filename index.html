@@ -268,11 +268,9 @@
       <div class="no-prods" id="noProdsMsg">Nessun prodotto aggiunto ancora — clicca il pulsante qui sotto per iniziare</div>
     </div>
     <button class="add-product-btn" onclick="addProduct()">+ Aggiungi articolo</button>
-    <button class="add-product-btn" onclick="openConfigurator()" style="background:var(--sage);border-color:var(--sage);color:#fff;margin-left:0.5rem">🎨 Apri Configuratore 3D</button>
-    <div id="config-preview" style="display:none"></div>
     <span class="err" id="e_prods" style="font-size:0.8rem;display:none">Aggiungi almeno un prodotto per procedere</span>
 
-    <!-- Modal Configuratore -->
+    <!-- Modal Configuratore (condiviso, ricaricato per ogni articolo) -->
     <div id="configurator-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);flex-direction:column">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;background:#0d0d18;border-bottom:1px solid rgba(255,255,255,0.1)">
         <span style="color:#e4e4f0;font-size:0.9rem;font-family:'DM Sans',sans-serif;letter-spacing:0.05em">Configuratore 3D — B1PIÙ8</span>
@@ -282,40 +280,54 @@
     </div>
 
     <script>
-      let configuratorLoaded = false;
-      function openConfigurator() {
+      /* ID del prodotto correntemente in configurazione */
+      let configuratorProdId = null;
+
+      function openConfigurator(prodId) {
+        configuratorProdId = prodId;
         const m = document.getElementById('configurator-modal');
         m.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        if (!configuratorLoaded) {
-          document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
-          configuratorLoaded = true;
-        }
-      }
-      function closeConfigurator() {
-        const m = document.getElementById('configurator-modal');
-        m.style.display = 'none';
-        document.body.style.overflow = '';
+        /* Ricarica sempre l'iframe così ogni articolo parte pulito */
+        document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
       }
 
-      /* Ricevi dati dal configuratore */
-      let savedConfig = null;
+      function closeConfigurator() {
+        document.getElementById('configurator-modal').style.display = 'none';
+        document.getElementById('configurator-frame').src = '';
+        document.body.style.overflow = '';
+        configuratorProdId = null;
+      }
+
+      /* Ricevi dati dal configuratore e collegali all'articolo corretto */
       window.addEventListener('message', e => {
-        if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA') {
-          savedConfig = e.data;
+        if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA' && configuratorProdId !== null) {
+          const p = prods.find(x => x.id === configuratorProdId);
+          if (p) {
+            p.configurazione = e.data;
+            renderProdConfigPreview(configuratorProdId);
+          }
           closeConfigurator();
-          renderConfigPreview();
         }
       });
 
-      function renderConfigPreview() {
-        const el = document.getElementById('config-preview');
-        if (!savedConfig) { el.style.display = 'none'; return; }
+      function renderProdConfigPreview(prodId) {
+        const p = prods.find(x => x.id === prodId);
+        const el = document.getElementById('cfg_preview_'+prodId);
+        if (!el) return;
+        if (!p || !p.configurazione) { el.style.display = 'none'; return; }
+        const cfg = p.configurazione;
+        const zonesHtml = (cfg.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join(' ');
+        const textsHtml = (cfg.texts||[]).length ? ' · '+cfg.texts.map(t=>'"'+t.text+'"').join(', ') : '';
+        const screenshotHtml = cfg.screenshot ? '<img src="'+cfg.screenshot+'" style="height:44px;border-radius:4px;border:1px solid #e2d9c8;flex-shrink:0">' : '';
         el.style.display = 'block';
-        const zonesHtml = savedConfig.zones.map(z=>'<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join('');
-        const textsHtml = savedConfig.texts.length ? '<div style="font-size:0.8rem;color:#7a6a52">'+savedConfig.texts.map(t=>'"'+t.text+'"').join(', ')+'</div>' : '';
-        const screenshotHtml = savedConfig.screenshot ? '<img src="'+savedConfig.screenshot+'" style="height:60px;border-radius:6px;border:1px solid #e2d9c8">' : '';
-        el.innerHTML = '<div style="display:flex;align-items:center;gap:12px;background:#f5f0e8;border:1px solid #e2d9c8;border-radius:8px;padding:10px 14px;margin-top:8px">'+screenshotHtml+'<div style="flex:1"><div style="font-weight:600;font-size:0.9rem">'+savedConfig.modelLabel+'</div><div style="font-size:0.8rem;color:#7a6a52;margin-top:2px">'+zonesHtml+'</div>'+textsHtml+'</div><button onclick="openConfigurator()" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer">🔍 Apri 3D</button><button onclick="savedConfig=null;renderConfigPreview()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1.1rem">✕</button></div>';
+        el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:7px 10px;margin-top:6px">'+screenshotHtml+'<div style="flex:1;min-width:0"><div style="font-size:0.8rem;font-weight:600;color:#1a1208">✓ '+cfg.modelLabel+'</div><div style="font-size:0.72rem;color:#6a7a52;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+zonesHtml+textsHtml+'</div></div><button onclick="openConfigurator('+prodId+')" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer;white-space:nowrap">✏️ Modifica</button><button onclick="removeProdConfig('+prodId+')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1rem;padding:0 4px">✕</button></div>';
+      }
+
+      function removeProdConfig(prodId) {
+        const p = prods.find(x => x.id === prodId);
+        if (p) p.configurazione = null;
+        renderProdConfigPreview(prodId);
       }
     </script>
 
@@ -505,6 +517,10 @@ function addProduct() {
         <p><strong>Carica immagini</strong> — JPG, PNG, PDF — nessun limite di numero</p>
       </div>
       <div class="prod-preview" id="pv_${id}"></div>
+    </div>
+    <div style="margin-top:0.75rem">
+      <button type="button" onclick="openConfigurator(${id})" style="background:var(--sage,#7a8c6e);border:1.5px solid var(--sage,#7a8c6e);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:500;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;width:100%;letter-spacing:0.02em">🎨 Configura modello 3D</button>
+      <div id="cfg_preview_${id}" style="display:none"></div>
     </div>`;
   document.getElementById('prodsContainer').appendChild(el);
   document.getElementById('e_prods').classList.remove('on');
@@ -543,6 +559,17 @@ function collectProds() {
     qta: document.getElementById('pq_'+p.id)?.value||'1',
     colore: document.getElementById('pc_'+p.id)?.value||'',
     immagini: p.files.map(f=>f.name),
+    configurazione: p.configurazione ? {
+      configId: p.configurazione.configId,
+      configUrl: p.configurazione.configUrl,
+      model: p.configurazione.model,
+      modelLabel: p.configurazione.modelLabel,
+      screenshot: p.configurazione.screenshot,
+      zones: p.configurazione.zones,
+      texts: p.configurazione.texts,
+      logos: p.configurazione.logos,
+      textures: p.configurazione.textures,
+    } : null,
   }));
 }
 
@@ -689,17 +716,6 @@ async function submitOrder() {
       via: document.getElementById('f_fvia').value.trim(),
       sdi: document.getElementById('f_sdi').value.trim(),
     } : null,
-    configurazione: savedConfig ? {
-      configId: savedConfig.configId,
-      configUrl: savedConfig.configUrl,
-      model: savedConfig.model,
-      modelLabel: savedConfig.modelLabel,
-      screenshot: savedConfig.screenshot,
-      zones: savedConfig.zones,
-      texts: savedConfig.texts,
-      logos: savedConfig.logos,
-      textures: savedConfig.textures,
-    } : null,
   };
 
   // Save to Supabase
@@ -722,17 +738,6 @@ async function submitOrder() {
       note: order.note,
       fattura: order.fatturazione ? JSON.stringify(order.fatturazione) : null,
       stato: 'Nuovo',
-      configurazione: savedConfig ? JSON.stringify({
-        configId: savedConfig.configId,
-        configUrl: savedConfig.configUrl,
-        model: savedConfig.model,
-        modelLabel: savedConfig.modelLabel,
-        screenshot: savedConfig.screenshot,
-        zones: savedConfig.zones,
-        texts: savedConfig.texts,
-        logos: savedConfig.logos,
-        textures: savedConfig.textures,
-      }) : null,
     };
     const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini`, {
       method: 'POST',
@@ -818,6 +823,8 @@ async function loadOrdersFromSupabase() {
 
 let pendingConfig = null;
 function openViewer3D(cfgData) {
+  /* Accetta sia oggetto che stringa JSON */
+  if (typeof cfgData === 'string') cfgData = JSON.parse(cfgData);
   const m = document.getElementById('viewer3d-modal');
   const frame = document.getElementById('viewer3d-frame');
   pendingConfig = cfgData;
@@ -870,30 +877,33 @@ function renderDash() {
     const d = new Date(o.date);
     const ds = d.toLocaleDateString('it-IT')+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     const bc = {'Nuovo':'s-nuovo','In lavorazione':'s-wip','Completato':'s-done'}[o.status]||'';
-    const ph = o.prodotti.map(p=>{
-      const imgs = p.immagini_urls?.length
-        ? `<div class="prow-imgs">${p.immagini_urls.map(url=>`<a href="${url}" target="_blank" download style="margin-right:6px"><img src="${url}" style="height:64px;border-radius:6px;cursor:pointer;border:2px solid #e2d9c8" title="Clicca per aprire"></a>`).join('')}</div>`
+    const ph = o.prodotti.map((p, pi)=>{
+      /* Fix immagini: usa solo URL validi (stringa non vuota che inizia con http) */
+      const validUrls = (p.immagini_urls||[]).filter(u => u && typeof u === 'string' && u.startsWith('http'));
+      const imgs = validUrls.length
+        ? `<div class="prow-imgs">${validUrls.map(url=>`<a href="${url}" target="_blank" rel="noopener" style="margin-right:6px;display:inline-block"><img src="${url}" style="height:64px;border-radius:6px;cursor:pointer;border:2px solid #e2d9c8" title="Clicca per aprire" onerror="this.style.display='none'"></a>`).join('')}</div>`
         : (p.immagini?.length ? `<div class="prow-imgs">${p.immagini.map(i=>`<span>🖼 ${i}</span>`).join('')}</div>` : '');
+      /* Configurazione per-articolo */
+      let prodCfgBlock = '';
+      const pCfg = p.configurazione ? (typeof p.configurazione === 'string' ? JSON.parse(p.configurazione) : p.configurazione) : null;
+      if (pCfg) {
+        const pZones = (pCfg.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px;margin-right:5px"><span style="width:7px;height:7px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join('');
+        const pTexts = (pCfg.texts||[]).length ? '<div style="font-size:0.75rem;color:#7a6a52;margin-top:1px">Testi: '+(pCfg.texts.map(t=>'"'+t.text+'"').join(', '))+'</div>' : '';
+        const pLogos = (pCfg.logos||[]).filter(l=>l.imgSrc).map(l=>'<a href="'+l.imgSrc+'" target="_blank" rel="noopener" style="color:#7a8c6e;font-size:0.72rem">'+l.name+'</a>').join(', ');
+        const pScreen = pCfg.screenshot ? '<img src="'+pCfg.screenshot+'" style="height:44px;border-radius:4px;border:1px solid #e2d9c8;cursor:pointer;flex-shrink:0" onclick="window.open(this.src)">' : '';
+        const cfgId = o.id+'_'+pi;
+        const pViewerBtn = '<button onclick="openViewer3D('+JSON.stringify(JSON.stringify(pCfg)).replace(/'/g,"&#39;")+')" style="font-size:0.72rem;background:#7a8c6e;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">🔍 3D</button>';
+        const pPdfBtn = '<button onclick="exportCfgPdfDirect('+JSON.stringify(JSON.stringify({orderId:o.id,prodIdx:pi,cliente:o.cliente.nome,numero:o.numero}))+')" style="font-size:0.72rem;background:#4f8ef7;color:white;padding:3px 8px;border-radius:4px;border:none;cursor:pointer">📄 PDF</button>';
+        prodCfgBlock = '<div style="display:flex;align-items:flex-start;gap:7px;background:#f0f7ee;border:1px solid #b8d9b0;border-radius:6px;padding:6px 8px;margin-top:5px">'+pScreen+'<div style="flex:1;min-width:0"><div style="font-size:0.78rem;font-weight:600">⚙ '+( pCfg.modelLabel||'')+'</div><div style="font-size:0.72rem;color:#6a7a52;flex-wrap:wrap">'+pZones+'</div>'+pTexts+(pLogos?'<div style="font-size:0.72rem;color:#7a6a52;margin-top:1px">Loghi: '+pLogos+'</div>':'')+'</div><div style="display:flex;flex-direction:column;gap:3px">'+pViewerBtn+pPdfBtn+'</div></div>';
+      }
       return `<div class="prow">
         <strong>${p.nome||'—'}</strong> — Taglia: <strong>${p.taglia||'—'}</strong> — Qtà: <strong>${p.qta}</strong>${p.colore?' — '+p.colore:''}
-        ${imgs}
+        ${imgs}${prodCfgBlock}
       </div>`;
     }).join('');
     const fh = o.fatturazione?`
       <div style="grid-column:1/-1"><div class="dkey">Fatturazione</div>
       <div class="dval">${o.fatturazione.ragione} — P.IVA: ${o.fatturazione.piva}${o.fatturazione.sdi?' — SDI: '+o.fatturazione.sdi:''}</div></div>`:'';
-    const cfgData = o.configurazione ? (typeof o.configurazione === 'string' ? JSON.parse(o.configurazione) : o.configurazione) : null;
-    let cfgBlock = '';
-    if (cfgData) {
-      const zonesHtml = (cfgData.zones||[]).map(z=>'<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+z.color+';display:inline-block"></span>'+z.name+'</span>').join('');
-      const textsHtml = (cfgData.texts||[]).length ? '<div style="font-size:0.78rem;color:#7a6a52;margin-top:2px">Testi: '+(cfgData.texts.map(t=>'"'+t.text+'"').join(', '))+'</div>' : '';
-      const logosHtml = (cfgData.logos||[]).filter(l=>l.imgSrc).length ? '<div style="font-size:0.78rem;color:#7a6a52;margin-top:2px">Loghi: '+(cfgData.logos.filter(l=>l.imgSrc).map(l=>'<a href="'+l.imgSrc+'" target="_blank" style="color:#7a8c6e">'+l.name+'</a>').join(', '))+'</div>' : '';
-      const texturesHtml = (cfgData.textures||[]).filter(t=>t.imgSrc).length ? '<div style="font-size:0.78rem;color:#7a6a52;margin-top:2px">Texture: '+(cfgData.textures.filter(t=>t.imgSrc).map(t=>'<a href="'+t.imgSrc+'" target="_blank" style="color:#7a8c6e">'+t.name+'</a>').join(', '))+'</div>' : '';
-      const screenshotHtml = cfgData.screenshot ? '<img src="'+cfgData.screenshot+'" style="height:60px;border-radius:4px;border:1px solid #e2d9c8;cursor:pointer" onclick="window.open(this.src)">' : '';
-      const viewerBtn = '<button onclick="openViewer3D(JSON.parse(this.dataset.cfg))" data-cfg=\''+JSON.stringify(cfgData).replace(/'/g,'&#39;')+'\' style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap">🔍 Apri 3D</button>';
-      const pdfBtn = '<button onclick="exportCfgPdf(\''+o.id+'\')" style="font-size:0.78rem;background:#4f8ef7;color:white;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap">📄 Scarica PDF</button>';
-      cfgBlock = '<div style="margin-bottom:0.85rem"><div class="dkey">Configurazione 3D</div><div style="display:flex;align-items:flex-start;gap:10px;margin-top:6px;background:#f5f0e8;border:1px solid #e2d9c8;border-radius:8px;padding:8px 12px">'+screenshotHtml+'<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">'+(cfgData.modelLabel||'')+'</div><div style="font-size:0.78rem;color:#7a6a52;margin-top:2px;flex-wrap:wrap;display:flex;gap:4px">'+zonesHtml+'</div>'+textsHtml+logosHtml+texturesHtml+'</div><div style="display:flex;flex-direction:column;gap:5px">'+viewerBtn+pdfBtn+'</div></div></div>';
-    }
     return `<div class="order-card" id="c_${o.id}">
       <div class="order-card-head" onclick="toggleCard(${o.id})">
         <div class="onum">${num}</div>
@@ -915,7 +925,7 @@ function renderDash() {
         </div>
         <div class="prods-summary"><div class="prods-title">Articoli ordinati</div>${ph}</div>
         ${o.note?`<div style="margin-bottom:0.85rem"><div class="dkey">Note</div><div class="dval" style="font-size:0.88rem;margin-top:3px">${o.note}</div></div>`:''}
-        ${cfgBlock}        <div class="ssel-row">
+        <div class="ssel-row">
           <label>Stato</label>
           <select class="ssel" onchange="updateStatus(${o.id},this.value)">
             <option ${o.status==='Nuovo'?'selected':''}>Nuovo</option>
@@ -924,8 +934,7 @@ function renderDash() {
           </select>
           <button class="del-btn" onclick="delOrder(${o.id})">🗑 Elimina</button>
           <button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem" onclick="exportSingleCSV(${o.id})">⬇ CSV</button>
-          <button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem;background:#7a8c6e;color:white;border:none" onclick="downloadAllImages(${o.id})">🖼 Scarica immagini</button>
-          ${o.prodotti.some(p=>p.immagini_urls?.length) ? `<button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem;background:#7a8c6e;color:white;border-color:#7a8c6e" onclick="downloadAllImages(${o.id})">🖼 Scarica immagini</button>` : ''}
+          ${o.prodotti.some(p=>p.immagini_urls?.some(u=>u&&u.startsWith('http'))) ? `<button class="export-btn" style="font-size:0.78rem;padding:0.4rem 0.9rem;background:#7a8c6e;color:white;border:none" onclick="downloadAllImages(${o.id})">🖼 Scarica immagini</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -1069,18 +1078,23 @@ function exportCSV() {
   a.click(); showToast('📥 CSV scaricato');
 }
 
-async function exportCfgPdf(orderId) {
-  const o = orders.find(x => String(x.id) === String(orderId));
-  if (!o || !o.configurazione) { showToast('Nessuna configurazione per questo ordine'); return; }
-  const cfg = typeof o.configurazione === 'string' ? JSON.parse(o.configurazione) : o.configurazione;
-  showToast('⏳ Generazione PDF...');
+async function exportCfgPdfDirect(metaJson) {
+  const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+  const o = orders.find(x => String(x.id) === String(meta.orderId));
+  if (!o) return;
+  const p = o.prodotti[meta.prodIdx];
+  if (!p || !p.configurazione) { showToast('Nessuna configurazione per questo articolo'); return; }
+  const cfg = typeof p.configurazione === 'string' ? JSON.parse(p.configurazione) : p.configurazione;
+  await _generateCfgPdf(cfg, o, p);
+}
 
+async function _generateCfgPdf(cfg, o, p) {
+  showToast('⏳ Generazione PDF...');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210, margin = 15;
   let y = margin;
 
-  /* ── Header ── */
   doc.setFillColor(26, 18, 8);
   doc.rect(0, 0, W, 22, 'F');
   doc.setTextColor(200, 169, 110);
@@ -1091,89 +1105,68 @@ async function exportCfgPdf(orderId) {
   doc.text(new Date().toLocaleDateString('it-IT'), W - margin, 14, { align: 'right' });
   y = 30;
 
-  /* ── Ordine ── */
   doc.setTextColor(26, 18, 8);
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-  doc.text(`Ordine ${o.numero || '#' + String(o.id).padStart(4,'0')} — ${o.cliente.nome}`, margin, y); y += 6;
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 90, 66);
-  doc.text(`Email: ${o.cliente.email}  |  Modello: ${cfg.modelLabel || cfg.model}`, margin, y); y += 10;
+  doc.text(`Ordine ${o.numero || '#'+String(o.id).padStart(4,'0')} — ${o.cliente.nome}`, margin, y); y += 6;
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 90, 66);
+  doc.text(`Articolo: ${p.nome||'—'} · Modello 3D: ${cfg.modelLabel || cfg.model}`, margin, y); y += 10;
 
-  /* ── Screenshot ── */
   if (cfg.screenshot) {
     try {
-      const imgW = 80, imgH = 55;
-      doc.addImage(cfg.screenshot, 'JPEG', margin, y, imgW, imgH);
-      y += imgH + 6;
+      doc.addImage(cfg.screenshot, 'JPEG', margin, y, 80, 55);
+      y += 61;
     } catch(e) {}
   }
 
-  /* ── Zone colore ── */
-  if (cfg.zones && cfg.zones.length) {
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(26,18,8);
+  if (cfg.zones?.length) {
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,18,8);
     doc.text('Zone colore:', margin, y); y += 5;
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     cfg.zones.forEach(z => {
       const hex = z.color.replace('#','');
-      const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
-      doc.setFillColor(r,g,b);
-      doc.rect(margin, y-3, 4, 4, 'F');
-      doc.setTextColor(60,50,30);
+      doc.setFillColor(parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16));
+      doc.rect(margin, y-3.5, 4, 4, 'F');
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,50,30);
       doc.text(`${z.name}: ${z.color.toUpperCase()}`, margin+6, y); y += 5;
     });
-    y += 3;
+    y += 2;
   }
 
-  /* ── Testi ── */
-  if (cfg.texts && cfg.texts.length) {
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(26,18,8);
-    doc.text('Testi personalizzati:', margin, y); y += 5;
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(60,50,30);
+  if (cfg.texts?.length) {
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,18,8);
+    doc.text('Testi:', margin, y); y += 5;
     cfg.texts.forEach(t => {
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,50,30);
       doc.text(`• "${t.text}" — Font: ${t.font}, Colore: ${t.color}`, margin, y); y += 5;
     });
-    y += 3;
+    y += 2;
   }
 
-  /* ── Loghi ── */
   const logosWithImg = (cfg.logos||[]).filter(l => l.imgSrc);
   if (logosWithImg.length) {
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(26,18,8);
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,18,8);
     doc.text('Loghi:', margin, y); y += 5;
     for (const l of logosWithImg) {
       try {
-        /* Carica immagine dal URL Supabase */
         const imgData = await fetch(l.imgSrc).then(r=>r.blob()).then(b=>new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b);}));
-        const iW = 30, iH = 20;
-        if (y + iH + 10 > 280) { doc.addPage(); y = margin; }
-        doc.addImage(imgData, 'PNG', margin, y, iW, iH);
+        if (y + 24 > 280) { doc.addPage(); y = margin; }
+        doc.addImage(imgData, 'PNG', margin, y, 30, 20);
         doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,90,66);
-        doc.text(l.name, margin + iW + 3, y + 10); y += iH + 4;
+        doc.text(l.name, margin+33, y+10); y += 24;
       } catch(e) {
         doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,50,30);
-        doc.text(`• ${l.name} (immagine non disponibile)`, margin, y); y += 5;
+        doc.text(`• ${l.name}`, margin, y); y += 5;
       }
     }
-    y += 3;
   }
 
-  /* ── Texture ── */
-  const texWithImg = (cfg.textures||[]).filter(t => t.imgSrc);
-  if (texWithImg.length) {
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,18,8);
-    doc.text('Texture di sfondo:', margin, y); y += 5;
-    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60,50,30);
-    texWithImg.forEach(t => { doc.text(`• ${t.name} — Zona: ${t.zoneName||'—'}`, margin, y); y += 5; });
-  }
-
-  /* ── Footer ── */
-  doc.setFillColor(245, 240, 232);
+  doc.setFillColor(245,240,232);
   doc.rect(0, 287, W, 10, 'F');
   doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(140,130,110);
   doc.text("B1PIU'8 di Biffi Davide — Documento generato automaticamente", W/2, 293, {align:'center'});
 
   const num = (o.numero||'').replace('#','') || String(o.id).padStart(4,'0');
-  doc.save(`configurazione-${num}-${(o.cliente.nome||'').replace(/\s+/g,'-').toLowerCase()}.pdf`);
+  const nomeProd = (p.nome||'articolo').replace(/\s+/g,'-').toLowerCase().slice(0,20);
+  doc.save(`cfg-${num}-${nomeProd}.pdf`);
   showToast('✅ PDF scaricato');
 }
 
