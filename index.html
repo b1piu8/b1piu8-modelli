@@ -277,14 +277,19 @@
         <span style="color:#e4e4f0;font-size:0.9rem;font-family:'DM Sans',sans-serif;letter-spacing:0.05em">Configuratore 3D — B1PIÙ8</span>
         <button onclick="closeConfigurator()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e4e4f0;padding:0.3rem 0.9rem;border-radius:6px;cursor:pointer;font-size:0.85rem">✕ Chiudi</button>
       </div>
-      <iframe id="configurator-frame" src="https://b1piu8.github.io/b1piu8-modelli/configuratore.html" style="flex:1;border:none;width:100%;height:100%"></iframe>
+      <iframe id="configurator-frame" src="" style="flex:1;border:none;width:100%;height:100%"></iframe>
     </div>
 
     <script>
+      let configuratorLoaded = false;
       function openConfigurator() {
         const m = document.getElementById('configurator-modal');
         m.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        if (!configuratorLoaded) {
+          document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
+          configuratorLoaded = true;
+        }
       }
       function closeConfigurator() {
         const m = document.getElementById('configurator-modal');
