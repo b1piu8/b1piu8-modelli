@@ -832,10 +832,16 @@ function closeViewer3D() {
 /* Quando il configuratore è pronto, invia la configurazione */
 window.addEventListener('message', function(e) {
   if (e.data && e.data.type === 'CONFIGURATORE_PRONTO' && pendingConfig) {
-    document.getElementById('viewer3d-frame').contentWindow.postMessage({
-      type: 'CARICA_CONFIGURAZIONE',
-      config: pendingConfig
-    }, '*');
+    /* Serializza e deserializza per rimuovere oggetti non clonabili */
+    try {
+      const safeConfig = JSON.parse(JSON.stringify(pendingConfig));
+      document.getElementById('viewer3d-frame').contentWindow.postMessage({
+        type: 'CARICA_CONFIGURAZIONE',
+        config: safeConfig
+      }, '*');
+    } catch(err) {
+      console.warn('Errore serializzazione config:', err);
+    }
   }
 });
 function renderDash() {
