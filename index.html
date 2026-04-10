@@ -696,6 +696,7 @@ async function submitOrder() {
       zones: savedConfig.zones,
       texts: savedConfig.texts,
       logos: savedConfig.logos,
+      textures: savedConfig.textures,
     } : null,
   };
 
@@ -727,6 +728,7 @@ async function submitOrder() {
         zones: savedConfig.zones,
         texts: savedConfig.texts,
         logos: savedConfig.logos,
+        textures: savedConfig.textures,
       }) : null,
     };
     const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini`, {

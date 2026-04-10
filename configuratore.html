@@ -1888,13 +1888,12 @@ window.addEventListener('message', async function(e) {
       cfg.textures.forEach(t => {
         if (!t.imgSrc) return;
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
-          /* Trova la zona per nome */
           const zoneIdx = S.zones.findIndex(z => z.displayName === t.zoneName);
           if (zoneIdx < 0) return;
           S.activeZone = zoneIdx;
           applyTextureToZone(img, t.name);
-          /* Ripristina parametri texture */
           if (activeTextureEntry) {
             activeTextureEntry.mats.forEach(m => {
               if (m.map) {
@@ -1915,8 +1914,15 @@ window.addEventListener('message', async function(e) {
       cfg.logos.forEach(l => {
         if (!l.imgSrc) return;
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => { addLogoLayer(img, l.name); };
         img.src = l.imgSrc;
+      });
+    }
+    /* Ripristina testi */
+    if (cfg.texts && cfg.texts.length) {
+      cfg.texts.forEach(t => {
+        addTextLayer(t.text, t.font || 'Arial Black', 60, t.color || '#ffffff');
       });
     }
   }
