@@ -1861,14 +1861,26 @@ document.getElementById('sel-model').addEventListener('change', e => loadModel(e
 /* Carica configurazione salvata se presente nell'URL */
 (async function loadSavedConfig() {
   const params = new URLSearchParams(window.location.search);
+  const cfgData = params.get('cfgdata');
   const cfgUrl = params.get('cfg');
-  if (!cfgUrl) {
+
+  if (!cfgData && !cfgUrl) {
     loadModel('Canotta ELLE.draco.glb');
     return;
   }
+
   try {
-    const res = await fetch(cfgUrl, { mode: 'cors' });
-    const cfg = await res.json();
+    let cfg;
+    if (cfgData) {
+      /* Configurazione inline in Base64 */
+      const json = decodeURIComponent(escape(atob(cfgData)));
+      cfg = JSON.parse(json);
+    } else {
+      /* Configurazione da URL remoto */
+      const res = await fetch(cfgUrl, { mode: 'cors' });
+      cfg = await res.json();
+    }
+
     /* Carica modello */
     document.getElementById('sel-model').value = cfg.model;
     loadModel(cfg.model);
@@ -1960,11 +1972,14 @@ async function saveConfiguration() {
       });
       if (uploadRes.ok) {
         configUrl = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${jsonPath}`;
-        viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfg=${encodeURIComponent(configUrl)}`;
       }
     } catch(e) {
-      console.warn('Upload Supabase non riuscito, continuo senza:', e);
+      console.warn('Upload Supabase non riuscito:', e);
     }
+
+    /* Costruisci viewerUrl con config inline in Base64 (non dipende da CORS) */
+    const configBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(configState))));
+    viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfgdata=${encodeURIComponent(configBase64)}`;
 
     /* 4 — Invia dati al modulo genitore via postMessage */
     window.parent.postMessage({
