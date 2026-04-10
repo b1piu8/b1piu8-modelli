@@ -268,6 +268,7 @@
     </div>
     <button class="add-product-btn" onclick="addProduct()">+ Aggiungi articolo</button>
     <button class="add-product-btn" onclick="openConfigurator()" style="background:var(--sage);border-color:var(--sage);color:#fff;margin-left:0.5rem">🎨 Apri Configuratore 3D</button>
+    <div id="config-preview" style="display:none"></div>
     <span class="err" id="e_prods" style="font-size:0.8rem;display:none">Aggiungi almeno un prodotto per procedere</span>
 
     <!-- Modal Configuratore -->
@@ -289,6 +290,35 @@
         const m = document.getElementById('configurator-modal');
         m.style.display = 'none';
         document.body.style.overflow = '';
+      }
+
+      /* Ricevi dati dal configuratore */
+      let savedConfig = null;
+      window.addEventListener('message', e => {
+        if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA') {
+          savedConfig = e.data;
+          closeConfigurator();
+          renderConfigPreview();
+        }
+      });
+
+      function renderConfigPreview() {
+        const el = document.getElementById('config-preview');
+        if (!savedConfig) { el.style.display = 'none'; return; }
+        el.style.display = 'block';
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;background:#f5f0e8;border:1px solid #e2d9c8;border-radius:8px;padding:10px 14px;margin-top:8px">
+            <img src="${savedConfig.screenshot}" style="height:60px;border-radius:6px;border:1px solid #e2d9c8">
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:0.9rem">${savedConfig.modelLabel}</div>
+              <div style="font-size:0.8rem;color:#7a6a52;margin-top:2px">
+                ${savedConfig.zones.map(z=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="width:10px;height:10px;border-radius:50%;background:${z.color};display:inline-block"></span>${z.name}</span>`).join('')}
+              </div>
+              ${savedConfig.texts.length ? `<div style="font-size:0.8rem;color:#7a6a52">${savedConfig.texts.map(t=>`"${t.text}"`).join(', ')}</div>` : ''}
+            </div>
+            <a href="${savedConfig.viewerUrl}" target="_blank" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;text-decoration:none">🔍 Apri 3D</a>
+            <button onclick="savedConfig=null;renderConfigPreview()" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:1.1rem">✕</button>
+          </div>`;
       }
     </script>
 
@@ -653,6 +683,14 @@ async function submitOrder() {
       via: document.getElementById('f_fvia').value.trim(),
       sdi: document.getElementById('f_sdi').value.trim(),
     } : null,
+    configurazione: savedConfig ? {
+      viewerUrl: savedConfig.viewerUrl,
+      screenshot: savedConfig.screenshot,
+      modelLabel: savedConfig.modelLabel,
+      zones: savedConfig.zones,
+      texts: savedConfig.texts,
+      logos: savedConfig.logos,
+    } : null,
   };
 
   // Save to Supabase
@@ -675,6 +713,14 @@ async function submitOrder() {
       note: order.note,
       fattura: order.fatturazione ? JSON.stringify(order.fatturazione) : null,
       stato: 'Nuovo',
+      configurazione: savedConfig ? JSON.stringify({
+        viewerUrl: savedConfig.viewerUrl,
+        screenshot: savedConfig.screenshot,
+        modelLabel: savedConfig.modelLabel,
+        zones: savedConfig.zones,
+        texts: savedConfig.texts,
+        logos: savedConfig.logos,
+      }) : null,
     };
     const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini`, {
       method: 'POST',
@@ -813,7 +859,22 @@ function renderDash() {
         </div>
         <div class="prods-summary"><div class="prods-title">Articoli ordinati</div>${ph}</div>
         ${o.note?`<div style="margin-bottom:0.85rem"><div class="dkey">Note</div><div class="dval" style="font-size:0.88rem;margin-top:3px">${o.note}</div></div>`:''}
-        <div class="ssel-row">
+        ${(()=>{
+          const cfg = o.configurazione ? (typeof o.configurazione === 'string' ? JSON.parse(o.configurazione) : o.configurazione) : null;
+          if (!cfg) return '';
+          return `<div style="margin-bottom:0.85rem">
+            <div class="dkey">Configurazione 3D</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;background:#f5f0e8;border:1px solid #e2d9c8;border-radius:8px;padding:8px 12px">
+              <img src="${cfg.screenshot}" style="height:50px;border-radius:4px;border:1px solid #e2d9c8">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:0.85rem">${cfg.modelLabel||''}</div>
+                <div style="font-size:0.78rem;color:#7a6a52">${(cfg.zones||[]).map(z=>`<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px"><span style="width:8px;height:8px;border-radius:50%;background:${z.color};display:inline-block"></span>${z.name}</span>`).join('')}</div>
+                ${(cfg.texts||[]).length?`<div style="font-size:0.78rem;color:#7a6a52">${cfg.texts.map(t=>`"${t.text}"`).join(', ')}</div>`:''}
+              </div>
+              <a href="${cfg.viewerUrl}" target="_blank" style="font-size:0.78rem;background:#7a8c6e;color:white;padding:5px 10px;border-radius:6px;text-decoration:none;white-space:nowrap">🔍 Apri 3D</a>
+            </div>
+          </div>`;
+        })()}        <div class="ssel-row">
           <label>Stato</label>
           <select class="ssel" onchange="updateStatus(${o.id},this.value)">
             <option ${o.status==='Nuovo'?'selected':''}>Nuovo</option>

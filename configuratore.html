@@ -369,7 +369,7 @@
 
 
 <div class="sec" style="margin-top:auto">
-      <button class="btn btn-export" id="btn-pdf">📄 Scarica PDF Riepilogativo</button>
+      <button class="btn btn-export" id="btn-pdf">💾 Salva configurazione</button>
     </div>
   </aside>
 </main>
@@ -1857,84 +1857,129 @@ document.querySelectorAll('.tab').forEach(t => {
    MODEL SELECT
 ───────────────────────────────────────────────────────────── */
 document.getElementById('sel-model').addEventListener('change', e => loadModel(e.target.value));
-loadModel('Canotta ELLE.draco.glb');
+
+/* Carica configurazione salvata se presente nell'URL */
+(async function loadSavedConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const cfgUrl = params.get('cfg');
+  if (!cfgUrl) {
+    loadModel('Canotta ELLE.draco.glb');
+    return;
+  }
+  try {
+    const res = await fetch(cfgUrl);
+    const cfg = await res.json();
+    /* Carica modello */
+    document.getElementById('sel-model').value = cfg.model;
+    await new Promise(resolve => {
+      const orig = loadModel;
+      loadModel(cfg.model);
+      /* Aspetta che il modello sia caricato */
+      const check = setInterval(() => {
+        if (S.model) { clearInterval(check); resolve(); }
+      }, 200);
+    });
+    /* Applica colori zone */
+    if (cfg.zones) {
+      cfg.zones.forEach(z => {
+        const zone = S.zones.find(sz => sz.displayName === z.name);
+        if (zone) {
+          zone.color = z.color;
+          const hex = z.color.replace('#','');
+          zone.material.color.setHex(parseInt(hex, 16));
+          zone.material.needsUpdate = true;
+        }
+      });
+      renderZones();
+    }
+  } catch(e) {
+    console.warn('Errore caricamento configurazione:', e);
+    loadModel('Canotta ELLE.draco.glb');
+  }
+})();
 
 /* ─────────────────────────────────────────────────────────────
    PDF EXPORT
 ───────────────────────────────────────────────────────────── */
-document.getElementById('btn-pdf').addEventListener('click', exportPDF);
+const SUPABASE_URL = 'https://uhuldfqetuhuojdniyud.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVodWxkZnFldHVodW9qZG5peXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMTk2NjMsImV4cCI6MjA4ODg5NTY2M30.GeLW_KbTX1PU1Hbyhoz3YSIrdvnV5jFx3ejLswKOTKg';
 
-function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  if (!jsPDF) { alert('Libreria PDF non disponibile.'); return; }
-  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210, M=14; let y=0;
-  const setDark=(r,g,b)=>doc.setTextColor(r,g,b);
-  const section=(title,yPos)=>{
-    doc.setFillColor(18,22,45); doc.rect(M,yPos,W-M*2,9,'F');
-    doc.setTextColor(79,142,247); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text(title,M+4,yPos+6.2); return yPos+13;
-  };
+document.getElementById('btn-pdf').addEventListener('click', saveConfiguration);
 
-  doc.setFillColor(10,10,20); doc.rect(0,0,W,42,'F');
-  doc.setTextColor(79,142,247); doc.setFontSize(24); doc.setFont('helvetica','bold'); doc.text('SPORT',M,22);
-  doc.setTextColor(240,240,255); doc.setFontSize(24); doc.text('CONFIG',M+30,22);
-  doc.setTextColor(140,140,180); doc.setFontSize(8.5); doc.setFont('helvetica','normal');
-  doc.text('Configuratore 3D Professionale — Scheda Ordine',M,31);
-  const now=new Date();
-  const dateStr=now.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
-  const orderNum=`ORD-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-  doc.setTextColor(140,140,180); doc.setFontSize(8);
-  doc.text(`Data: ${dateStr}`,W-M-55,24); doc.text(`N° Ordine: ${orderNum}`,W-M-55,31);
-  y=48;
+async function saveConfiguration() {
+  const btn = document.getElementById('btn-pdf');
+  btn.textContent = '⏳ Salvataggio...';
+  btn.disabled = true;
 
-  renderer.render(scene,camera);
-  const imgData=renderer.domElement.toDataURL('image/png');
-  const iW=108, iH=iW*renderer.domElement.height/renderer.domElement.width, iX=(W-iW)/2;
-  doc.setFillColor(5,5,12); doc.roundedRect(iX-2,y-2,iW+4,iH+4,3,3,'F');
-  doc.addImage(imgData,'PNG',iX,y,iW,iH);
-  const mdlLabel=document.getElementById('sel-model').options[document.getElementById('sel-model').selectedIndex].text;
-  doc.setTextColor(120,120,150); doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(mdlLabel,W/2,y+iH+5.5,{align:'center'}); y+=iH+10;
+  try {
+    /* 1 — Cattura screenshot del modello */
+    renderer.render(scene, camera);
+    const imgData = renderer.domElement.toDataURL('image/png');
 
-  y=section('ZONE COLORE',y);
-  if (S.zones.length) {
-    S.zones.forEach(z => {
-      if (z.hidden) return;
-      const hex=z.color.replace('#','');
-      const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
-      doc.setFillColor(r,g,b); doc.roundedRect(M,y,10,8,2,2,'F');
-      doc.setDrawColor(160,160,200); doc.roundedRect(M,y,10,8,2,2,'S');
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); setDark(50,55,80);
-      doc.text(z.displayName,M+14,y+5.5);
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setDark(100,100,140);
-      doc.text(z.color.toUpperCase(),M+80,y+5.5); y+=11;
+    /* 2 — Raccogli stato configurazione */
+    const modelFile = document.getElementById('sel-model').value;
+    const modelLabel = document.getElementById('sel-model').options[document.getElementById('sel-model').selectedIndex].text;
+
+    const configState = {
+      model: modelFile,
+      modelLabel,
+      screenshot: imgData,
+      zones: S.zones.filter(z => !z.hidden).map(z => ({
+        name: z.displayName,
+        color: z.color,
+      })),
+      texts: S.textLayers.map(l => ({
+        text: l.text,
+        font: l.font,
+        color: l.color,
+        strokeColor: l.strokeColor,
+        strokeEnabled: l.strokeEnabled,
+      })),
+      logos: S.logoLayers.map(l => ({ name: l.name })),
+    };
+
+    /* 3 — Salva JSON su Supabase storage */
+    const configId = `cfg-${Date.now()}`;
+    const jsonBlob = new Blob([JSON.stringify(configState)], { type: 'application/json' });
+    const jsonPath = `configurazioni/${configId}.json`;
+
+    await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/${jsonPath}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'x-upsert': 'true',
+      },
+      body: jsonBlob,
     });
-  } else { setDark(120,120,150); doc.setFontSize(9); doc.text('Nessuna zona configurata',M+4,y+5); y+=11; }
-  y+=3;
 
-  if (S.textLayers.length) {
-    y=section('PERSONALIZZAZIONE TESTO',y);
-    S.textLayers.forEach(l => {
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); setDark(50,55,80);
-      doc.text(`"${l.text}"`,M+4,y+5);
-      doc.setFont('helvetica','normal'); doc.setFontSize(8); setDark(100,100,140);
-      doc.text(`Font: ${l.font}  ·  Dimensione: ${l.size}px  ·  Colore: ${l.color.toUpperCase()}`,M+4,y+10);
-      y+=15;
-    }); y+=2;
-  }
-  if (S.logoLayers.length) {
-    y=section('LOGHI',y);
-    S.logoLayers.forEach(l => { doc.setFont('helvetica','normal'); doc.setFontSize(9); setDark(50,55,80); doc.text(l.name,M+4,y+5); y+=11; });
-    y+=2;
-  }
+    const configUrl = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/${jsonPath}`;
+    const viewerUrl = `https://b1piu8.github.io/b1piu8-modelli/configuratore.html?cfg=${encodeURIComponent(configUrl)}`;
 
-  const PH=297;
-  doc.setFillColor(10,10,20); doc.rect(0,PH-16,W,16,'F');
-  doc.setTextColor(90,95,130); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.text('Generato da SportConfig — Configuratore 3D Professionale',W/2,PH-8.5,{align:'center'});
-  doc.text(dateStr,M,PH-8.5); doc.text(orderNum,W-M,PH-8.5,{align:'right'});
-  doc.save(`SportConfig_ordine_${dateStr.replace(/\//g,'-')}.pdf`);
+    /* 4 — Invia dati al modulo genitore via postMessage */
+    window.parent.postMessage({
+      type: 'CONFIGURAZIONE_SALVATA',
+      configId,
+      configUrl,
+      viewerUrl,
+      screenshot: imgData,
+      modelLabel,
+      zones: configState.zones,
+      texts: configState.texts,
+      logos: configState.logos,
+    }, '*');
+
+    btn.textContent = '✅ Salvato!';
+    setTimeout(() => {
+      btn.textContent = '💾 Salva configurazione';
+      btn.disabled = false;
+    }, 2000);
+
+  } catch (err) {
+    console.error('Errore salvataggio:', err);
+    btn.textContent = '❌ Errore — riprova';
+    btn.disabled = false;
+  }
 }
 
 </script>
