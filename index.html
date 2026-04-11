@@ -1139,9 +1139,13 @@ function showToast(msg) {
 
 // ---- CONFIGURATORE PER ARTICOLO ----
 let configuratorProdId = null;
+let configuratorPendingLoad = null; /* config da caricare all'apertura (se modifica) */
 
 function openConfigurator(prodId) {
   configuratorProdId = prodId;
+  /* Se l'articolo ha già una configurazione, la carichiamo nel configuratore */
+  const p = prods.find(x => x.id === prodId);
+  configuratorPendingLoad = (p && p.configurazione) ? p.configurazione : null;
   document.getElementById('configurator-modal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   document.getElementById('configurator-frame').src = 'https://b1piu8.github.io/b1piu8-modelli/configuratore.html';
@@ -1152,9 +1156,22 @@ function closeConfigurator() {
   document.getElementById('configurator-frame').src = '';
   document.body.style.overflow = '';
   configuratorProdId = null;
+  configuratorPendingLoad = null;
 }
 
 window.addEventListener('message', e => {
+  /* Configuratore pronto: se c'è una config da ripristinare, inviala */
+  if (e.data && e.data.type === 'CONFIGURATORE_PRONTO' && configuratorPendingLoad) {
+    try {
+      const safeConfig = JSON.parse(JSON.stringify(configuratorPendingLoad));
+      document.getElementById('configurator-frame').contentWindow.postMessage({
+        type: 'CARICA_CONFIGURAZIONE',
+        config: safeConfig,
+      }, '*');
+    } catch(err) { console.warn('Errore caricamento config esistente:', err); }
+    configuratorPendingLoad = null;
+  }
+  /* Configurazione salvata: collegala all'articolo */
   if (e.data && e.data.type === 'CONFIGURAZIONE_SALVATA' && configuratorProdId !== null) {
     const p = prods.find(x => x.id === configuratorProdId);
     if (p) { p.configurazione = e.data; renderProdConfigPreview(configuratorProdId); }
