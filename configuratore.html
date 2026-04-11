@@ -1048,7 +1048,9 @@ function buildDecal(layer) {
   const aspect = layer.texture.userData.aspect || 1;
   const hW = layer.sizePx / 400;
   const wW = hW * aspect;
-  const size = new THREE.Vector3(wW, hW, Math.max(wW, hW) * 6);
+  /* size.z controlla quanto in profondità il decal "taglia" la mesh.
+     Valore piccolo = non attraversa dall'altra parte. */
+  const size = new THREE.Vector3(wW, hW, Math.max(wW, hW) * 1.5);
 
   let targetMesh = null;
   S.model.traverse(c => { if (c === layer.hitMesh) targetMesh = c; });
@@ -1971,13 +1973,10 @@ window.addEventListener('message', async function(e) {
         img.src = l.imgSrc;
       });
     }
-    /* Ripristina testi con tutti i parametri di stile */
+    /* Ripristina testi con tutti i parametri di stile e posizione originale */
     if (cfg.texts && cfg.texts.length) {
       cfg.texts.forEach(t => {
         if (!t.text) return;
-        const hit = getDefaultSurfaceHit();
-        if (!hit) return;
-        const { posLocal, normLocal } = worldHitToLocal(hit.positionWorld, hit.normalWorld);
         const strokeEnabled = t.strokeEnabled !== undefined ? t.strokeEnabled : true;
         const strokeColor   = t.strokeColor || '#000000';
         const weight        = t.weight || 'bold';
@@ -1986,14 +1985,31 @@ window.addEventListener('message', async function(e) {
         const font          = t.font || 'Arial Black';
         const sizePx        = t.sizePx || 60;
         const texture = makeTextTexture(t.text, font, color, strokeEnabled, strokeColor, weight, strokeWidth);
+
+        /* Usa posizione originale salvata se disponibile, altrimenti centro modello */
+        let posLocal, normLocal, hitMesh = null;
+        if (t.positionLocal && t.normalLocal) {
+          posLocal  = new THREE.Vector3(t.positionLocal.x, t.positionLocal.y, t.positionLocal.z);
+          normLocal = new THREE.Vector3(t.normalLocal.x,   t.normalLocal.y,   t.normalLocal.z);
+          if (t.hitMeshName) S.model.traverse(c => { if (c.name === t.hitMeshName) hitMesh = c; });
+          if (!hitMesh) S.model.traverse(c => { if (c.isMesh && !c.userData.isDecal && !c.userData.isBackface && !hitMesh) hitMesh = c; });
+        } else {
+          const hit = getDefaultSurfaceHit();
+          if (!hit) return;
+          const loc = worldHitToLocal(hit.positionWorld, hit.normalWorld);
+          posLocal  = loc.posLocal;
+          normLocal = loc.normLocal;
+          hitMesh   = hit.hitMesh;
+        }
+
         const layer = {
           id: Date.now() + Math.random(),
           text: t.text, font, color, size: sizePx, sizePx,
           strokeEnabled, strokeColor, weight, strokeWidth,
           label: `Testo`, visible: true, locked: false,
-          texture, hitMesh: hit.hitMesh,
+          texture, hitMesh,
           positionLocal: posLocal, normalLocal: normLocal,
-          rotation: 0, decalMesh: null,
+          rotation: t.rotation || 0, decalMesh: null,
         };
         buildDecal(layer);
         S.textLayers.push(layer);
@@ -2063,6 +2079,11 @@ async function saveConfiguration() {
         strokeEnabled: l.strokeEnabled,
         weight: l.weight,
         strokeWidth: l.strokeWidth,
+        sizePx: l.sizePx,
+        rotation: l.rotation || 0,
+        positionLocal: l.positionLocal ? { x: l.positionLocal.x, y: l.positionLocal.y, z: l.positionLocal.z } : null,
+        normalLocal: l.normalLocal ? { x: l.normalLocal.x, y: l.normalLocal.y, z: l.normalLocal.z } : null,
+        hitMeshName: l.hitMesh ? l.hitMesh.name : null,
       })),
       logos: S.logoLayers.map(l => ({
         name: l.name,
