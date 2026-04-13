@@ -890,8 +890,8 @@ const mp = new THREE.Vector2();
 let wasDrag = false, mdownX = 0, mdownY = 0;
 
 function canvasPointer(e) {
-  const r = canvas.getBoundingClientRect();
-  mp.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  const { clientX, clientY } = evClient(e);
+  canvasPointerFromClient(clientX, clientY);
 }
 
 /* Zone-colour raycast: respects exclusion rules */
@@ -1245,64 +1245,90 @@ function updateHandles() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   HANDLE INTERACTIONS — scale & rotate
+   HANDLE INTERACTIONS — scale & rotate (mouse + touch)
 ───────────────────────────────────────────────────────────── */
 let scaleState  = null;
 let rotateState = null;
 
-hScale.addEventListener('mousedown', e => {
-  e.stopPropagation();
+/* Helper: estrae clientX/clientY sia da MouseEvent che da TouchEvent */
+function evClient(e) {
+  if (e.touches && e.touches.length) return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length) return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+  return { clientX: e.clientX, clientY: e.clientY };
+}
+
+function canvasPointerFromClient(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  mp.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+}
+
+function onScaleStart(e) {
+  e.stopPropagation(); e.preventDefault();
   if (!S.selectedLayer || !S.model) return;
+  const { clientX, clientY } = evClient(e);
   const posW = S.selectedLayer.positionLocal.clone().applyMatrix4(S.model.matrixWorld);
   const c = projectWorldToClient(posW);
   if (!c) return;
-  scaleState = { initDist: Math.hypot(e.clientX-c.x, e.clientY-c.y)||1, initSize: S.selectedLayer.sizePx, layer: S.selectedLayer, cx: c.x, cy: c.y };
+  scaleState = { initDist: Math.hypot(clientX - c.x, clientY - c.y) || 1, initSize: S.selectedLayer.sizePx, layer: S.selectedLayer, cx: c.x, cy: c.y };
   controls.enabled = false;
-});
+}
 
-hRotate.addEventListener('mousedown', e => {
-  e.stopPropagation();
+function onRotateStart(e) {
+  e.stopPropagation(); e.preventDefault();
   if (!S.selectedLayer || !S.model) return;
+  const { clientX, clientY } = evClient(e);
   const posW = S.selectedLayer.positionLocal.clone().applyMatrix4(S.model.matrixWorld);
   const c = projectWorldToClient(posW);
   if (!c) return;
-  rotateState = { initAngle: Math.atan2(e.clientY-c.y, e.clientX-c.x), initRot: S.selectedLayer.rotation||0, layer: S.selectedLayer, cx: c.x, cy: c.y };
+  rotateState = { initAngle: Math.atan2(clientY - c.y, clientX - c.x), initRot: S.selectedLayer.rotation || 0, layer: S.selectedLayer, cx: c.x, cy: c.y };
   controls.enabled = false;
-});
+}
 
-window.addEventListener('mousemove', e => {
+function onPointerMove(e) {
+  const { clientX, clientY } = evClient(e);
   if (scaleState) {
-    const d = Math.hypot(e.clientX-scaleState.cx, e.clientY-scaleState.cy);
-    scaleState.layer.sizePx = Math.max(14, Math.round(scaleState.initSize * Math.max(0.1, d/scaleState.initDist)));
+    const d = Math.hypot(clientX - scaleState.cx, clientY - scaleState.cy);
+    scaleState.layer.sizePx = Math.max(14, Math.round(scaleState.initSize * Math.max(0.1, d / scaleState.initDist)));
     throttleBuildDecal(scaleState.layer);
   }
   if (rotateState) {
-    const a = Math.atan2(e.clientY-rotateState.cy, e.clientX-rotateState.cx);
+    const a = Math.atan2(clientY - rotateState.cy, clientX - rotateState.cx);
     rotateState.layer.rotation = rotateState.initRot - (a - rotateState.initAngle);
     throttleBuildDecal(rotateState.layer);
   }
-});
+}
 
-window.addEventListener('mouseup', () => {
+function onPointerUp() {
   if (scaleState)  { buildDecal(scaleState.layer);  scaleState  = null; if (!dragLayer) controls.enabled = true; }
   if (rotateState) { buildDecal(rotateState.layer); rotateState = null; if (!dragLayer) controls.enabled = true; }
-});
+}
+
+hScale.addEventListener('mousedown',  onScaleStart);
+hScale.addEventListener('touchstart',  onScaleStart, { passive: false });
+hRotate.addEventListener('mousedown', onRotateStart);
+hRotate.addEventListener('touchstart', onRotateStart, { passive: false });
+
+window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('touchmove',  onPointerMove, { passive: false });
+window.addEventListener('mouseup',   onPointerUp);
+window.addEventListener('touchend',  onPointerUp);
 
 /* ─────────────────────────────────────────────────────────────
-   CANVAS MOUSE EVENTS
+   CANVAS MOUSE + TOUCH EVENTS
 ───────────────────────────────────────────────────────────── */
-let dragLayer = null;
-let dragOffset = null; /* offset in local space tra click e centro del decal */
+let dragLayer  = null;
+let dragOffset = null;
 
-canvas.addEventListener('mousedown', e => {
-  mdownX = e.clientX; mdownY = e.clientY; wasDrag = false;
-  canvasPointer(e); rc.setFromCamera(mp, camera);
+function onCanvasPointerDown(e) {
+  const { clientX, clientY } = evClient(e);
+  mdownX = clientX; mdownY = clientY; wasDrag = false;
+  canvasPointerFromClient(clientX, clientY);
+  rc.setFromCamera(mp, camera);
 
-  /* 1. hit-test all decal meshes — preferisci layer non bloccati, poi i più recenti */
   const dHits = rc.intersectObjects(allDecalMeshes(), false);
   if (dHits.length) {
     const allLayers = [...S.textLayers, ...S.logoLayers];
-    const hitIds = new Set(dHits.map(h => h.object.userData.layerId));
+    const hitIds    = new Set(dHits.map(h => h.object.userData.layerId));
     const hitUnlocked = allLayers.filter(l => hitIds.has(l.id) && !l.locked);
     const hitLocked   = allLayers.filter(l => hitIds.has(l.id) && l.locked);
     const candidates  = hitUnlocked.length ? hitUnlocked : hitLocked;
@@ -1312,7 +1338,6 @@ canvas.addEventListener('mousedown', e => {
       if (!layer.locked) {
         dragLayer = layer;
         controls.enabled = false;
-        /* Calcola offset tra punto di click e centro del decal in local space */
         S.model.updateMatrixWorld(true);
         const invMW = S.model.matrixWorld.clone().invert();
         const clickLocal = dHits[0].point.clone().applyMatrix4(invMW);
@@ -1321,51 +1346,52 @@ canvas.addEventListener('mousedown', e => {
       renderTextList(); renderLogoList(); renderLayerList(); return;
     }
   }
-
-  /* 2. click on canvas → deselect */
   if (S.selectedLayer) { S.selectedLayer = null; renderTextList(); renderLogoList(); renderLayerList(); }
-});
+}
 
-canvas.addEventListener('mousemove', e => {
-  if (Math.hypot(e.clientX-mdownX, e.clientY-mdownY) > 4) wasDrag = true;
+function onCanvasPointerMove(e) {
+  const { clientX, clientY } = evClient(e);
+  if (Math.hypot(clientX - mdownX, clientY - mdownY) > 4) wasDrag = true;
   if (!dragLayer || !S.model) return;
-  canvasPointer(e); rc.setFromCamera(mp, camera);
+  if (e.cancelable) e.preventDefault(); /* evita scroll su mobile durante drag */
+  canvasPointerFromClient(clientX, clientY);
+  rc.setFromCamera(mp, camera);
 
   const hits = rc.intersectObjects(allModelMeshes(), false);
   if (!hits.length) return;
-
   const h = hits[0];
   dragLayer.hitMesh = h.object;
-
   S.model.updateMatrixWorld(true);
   const invMW = S.model.matrixWorld.clone().invert();
-
-  /* Il punto cliccato sulla mesh diventa il punto dell'immagine toccato,
-     sottraiamo l'offset per mantenere il punto di click fisso sotto il cursore */
   const hitLocal = h.point.clone().applyMatrix4(invMW);
   dragLayer.positionLocal.copy(hitLocal.clone().sub(dragOffset || new THREE.Vector3()));
-
   const normW = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
   if (normW.dot(camera.position.clone().sub(h.point)) < 0) normW.negate();
   dragLayer.normalLocal.copy(normW.clone().transformDirection(invMW).normalize());
-
   throttleBuildDecal(dragLayer);
-});
+}
 
-canvas.addEventListener('mouseup', () => {
+function onCanvasPointerUp() {
   if (dragLayer) { buildDecal(dragLayer); dragLayer = null; dragOffset = null; controls.enabled = true; }
-});
+}
+
+canvas.addEventListener('mousedown',  onCanvasPointerDown);
+canvas.addEventListener('touchstart', onCanvasPointerDown, { passive: false });
+canvas.addEventListener('mousemove',  onCanvasPointerMove);
+canvas.addEventListener('touchmove',  onCanvasPointerMove, { passive: false });
+canvas.addEventListener('mouseup',    onCanvasPointerUp);
+canvas.addEventListener('touchend',   onCanvasPointerUp);
 
 canvas.addEventListener('click', e => {
   if (wasDrag || !S.model) return;
-  canvasPointer(e); rc.setFromCamera(mp, camera);
-  /* never zone-select when clicking on a decal */
+  canvasPointerFromClient(e.clientX, e.clientY);
+  rc.setFromCamera(mp, camera);
   if (rc.intersectObjects(allDecalMeshes(), false).length) return;
   if (S.selectedLayer) return;
   const hits = rc.intersectObjects(zoneMeshes(), false);
   if (!hits.length) return;
   const hitMat = Array.isArray(hits[0].object.material)
-    ? hits[0].object.material[hits[0].face?.materialIndex??0] : hits[0].object.material;
+    ? hits[0].object.material[hits[0].face?.materialIndex ?? 0] : hits[0].object.material;
   const idx = S.zones.findIndex(z => z.material === hitMat || z.material.uuid === hitMat.uuid);
   if (idx >= 0) selectZone(idx);
 });
