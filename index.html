@@ -172,7 +172,10 @@
 <body>
 
 <nav>
-  <div class="brand">B1PIU'8 <small>di Biffi Davide</small></div>
+  <div class="brand">
+    <img id="nav-brand-logo" src="" alt="" style="display:none;height:36px;vertical-align:middle;margin-right:10px;border-radius:4px;object-fit:contain" onerror="this.style.display='none'">
+    B1PIU'8 <small>di Biffi Davide</small>
+  </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('form')">Nuovo Ordine</button>
     <button class="nav-tab" onclick="showAdminGate()">Admin <span class="nav-badge" id="newBadge" style="display:none">0</span></button>
@@ -182,6 +185,7 @@
 <!-- FORM PAGE -->
 <div class="page active" id="formPage">
   <div class="form-header">
+    <img id="form-brand-logo" src="" alt="" style="display:none;max-height:80px;max-width:260px;object-fit:contain;margin-bottom:0.75rem" onerror="this.style.display='none'">
     <h1>B1PIU'8 di Biffi Davide</h1>
     <div class="intro-box">
       <p>Dopo aver completato questa richiesta di ordine, la progettazione grafica inizierà appena possibile. Ti invieremo un'anteprima del lavoro finito per <strong>conferma prima di procedere con la stampa e confezione</strong>.</p>
@@ -340,6 +344,25 @@
       <div><h1>Gestione Ordini</h1><div class="subtitle" id="adminDate"></div></div>
       <button class="export-btn" onclick="exportCSV()">⬇ Esporta CSV</button>
     </div>
+
+    <!-- Logo aziendale -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div class="stat-label" style="margin-bottom:0.5rem">Logo aziendale</div>
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <img id="admin-logo-preview" alt="Logo" style="display:none;height:52px;max-width:180px;object-fit:contain;border-radius:6px;border:1px solid var(--border)">
+          <span id="admin-logo-none" style="font-size:0.82rem;color:#8a7a62">Nessun logo impostato — comparirà nella navbar e nell'intestazione del form</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0">
+        <label style="background:var(--ink);color:var(--gold-light);padding:0.45rem 1rem;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.8rem;font-weight:500;letter-spacing:0.03em;display:inline-flex;align-items:center;gap:0.4rem;user-select:none">
+          📷 Carica logo
+          <input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="uploadBrandLogo(this)">
+        </label>
+        <button id="admin-logo-remove-btn" onclick="removeBrandLogo()" class="del-btn" style="display:none">✕ Rimuovi</button>
+      </div>
+    </div>
+
     <div class="stats-row" id="statsRow"></div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="setFilter('tutti',this)">Tutti</button>
@@ -1199,6 +1222,93 @@ function removeProdConfig(prodId) {
 }
 
 updateBadge();
+
+// ---- LOGO AZIENDALE ----
+const BRAND_LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/immagini-ordini/brand/logo`;
+
+function loadBrandLogo() {
+  const t = '?t=' + Date.now();
+  ['nav-brand-logo', 'form-brand-logo'].forEach(id => {
+    const img = document.getElementById(id);
+    if (!img) return;
+    img.onload = () => { img.style.display = ''; };
+    img.onerror = () => { img.style.display = 'none'; };
+    img.src = BRAND_LOGO_URL + t;
+  });
+  refreshAdminLogoPreview();
+}
+
+function refreshAdminLogoPreview() {
+  const prev = document.getElementById('admin-logo-preview');
+  const none = document.getElementById('admin-logo-none');
+  const removeBtn = document.getElementById('admin-logo-remove-btn');
+  if (!prev) return;
+  prev.onload = () => {
+    prev.style.display = '';
+    if (none) none.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = '';
+  };
+  prev.onerror = () => {
+    prev.style.display = 'none';
+    if (none) none.style.display = '';
+    if (removeBtn) removeBtn.style.display = 'none';
+  };
+  prev.src = BRAND_LOGO_URL + '?t=' + Date.now();
+}
+
+async function uploadBrandLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('⏳ Caricamento logo...');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/brand/logo`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': file.type || 'image/png',
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+    if (res.ok) {
+      showToast('✓ Logo salvato');
+      loadBrandLogo();
+    } else {
+      console.warn('Errore upload logo:', await res.text());
+      showToast('❌ Errore caricamento logo');
+    }
+  } catch(err) {
+    console.warn('Errore upload logo:', err);
+    showToast('❌ Errore caricamento logo');
+  }
+  input.value = '';
+}
+
+async function removeBrandLogo() {
+  if (!confirm('Rimuovere il logo aziendale?')) return;
+  try {
+    await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini/brand/logo`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+      },
+    });
+  } catch(err) { console.warn('Errore rimozione logo:', err); }
+  ['nav-brand-logo', 'form-brand-logo'].forEach(id => {
+    const img = document.getElementById(id);
+    if (img) { img.src = ''; img.style.display = 'none'; }
+  });
+  const prev = document.getElementById('admin-logo-preview');
+  if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  const none = document.getElementById('admin-logo-none');
+  if (none) none.style.display = '';
+  const removeBtn = document.getElementById('admin-logo-remove-btn');
+  if (removeBtn) removeBtn.style.display = 'none';
+  showToast('🗑 Logo rimosso');
+}
+
+loadBrandLogo();
 </script>
 </body>
 </html>
