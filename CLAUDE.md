@@ -26,8 +26,10 @@ Non esistono comandi di build, lint o test.
 
 **`index.html`** — Form ordini + Dashboard Admin (SPA con due tab):
 - Tab clienti: form multi-prodotto con caricamento immagini e integrazione configuratore 3D
-- Tab admin: dashboard protetta da password (`916sps`) che legge da Supabase e permette aggiornamento stato ordini, export CSV/PDF, download immagini
-- Tutte le chiamate Supabase sono `fetch()` REST dirette dal browser usando la chiave anon
+- Tab admin: dashboard protetta da password. La password NON è nel codice: è salvata cifrata nel database (`privato.impostazioni`) e verificata dalle funzioni `admin_*`. Si cambia dal SQL Editor di Supabase con `select privato.imposta_password('nuova-password');`
+- Il form clienti usa la chiave anon solo per: inserire l'ordine (`POST /rest/v1/ordini`), caricare immagini nello storage, chiedere il numero con `rpc/prossimo_numero_ordine`
+- L'admin usa solo funzioni RPC protette da password: `admin_login`, `admin_ordini`, `admin_stato`, `admin_elimina`, `admin_archivia_inizia` / `admin_archivia_fine` / `admin_archivia_annulla`
+- Pulsante "Archivia immagini dei completati": scarica in .zip le immagini degli ordini completati, chiede conferma, poi le cancella dallo storage (policy `archiviazione_ordini`: permette di cancellare solo i file degli ordini con `in_archiviazione = true`) e segna `immagini_archiviate_il`
 - `localStorage` è usato come cache secondaria per lo stato degli ordini (`b1p8_orders`, `b1p8_counter`)
 
 **`configuratore.html`** — Configuratore 3D abbigliamento:
@@ -51,7 +53,7 @@ In `index.html` esistono due handler `addEventListener('message', ...)` separati
 ### Backend: Supabase
 
 - URL del progetto e chiave anon sono hardcoded in `index.html` (righe ~584–585)
-- Tabella: `ordini` (colonne: `numero`, `data`, `nome`, `email`, `telefono`, `canale`, `ditta`, `attne`, `via`, `cap`, `citta`, `provincia`, `articoli` (stringa JSON), `note`, `fattura` (stringa JSON), `stato`, `created_at`)
+- Tabella: `ordini` (colonne: `numero`, `data`, `nome`, `email`, `telefono`, `canale`, `ditta`, `attne`, `via`, `cap`, `citta`, `provincia`, `articoli` (stringa JSON), `note`, `fattura` (stringa JSON), `stato`, `created_at`, `configurazione`, `immagini_archiviate_il`, `in_archiviazione`). RLS attivo: la chiave anon può solo inserire.
 - Bucket storage: `immagini-ordini` — file salvati al percorso `{orderId}/prod{index}_{fileIndex}_{timestamp}.{ext}`
 - Le configurazioni 3D dei prodotti sono serializzate dentro il campo JSON `articoli`, non in una colonna separata
 

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>B1PIU'8 di Biffi Davide — Ordini</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -316,6 +317,7 @@
     </div>
 
     <div class="error-banner" id="errBanner">⚠ Correggi i campi evidenziati prima di inviare l'ordine.</div>
+    <div class="error-banner" id="submitErrBanner"></div>
     <button class="submit-btn" onclick="submitOrder()">✦ Invia ordine</button>
   </div>
 
@@ -364,6 +366,11 @@
     </div>
 
     <div class="stats-row" id="statsRow"></div>
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem">
+      <button id="archiveBtn" class="export-btn" onclick="archiveCompleted()" title="Scarica sul computer le immagini degli ordini completati e le toglie da Supabase per liberare spazio">📦 Archivia immagini dei completati</button>
+      <span style="font-size:0.78rem;color:#8a7a62">Libera spazio su Supabase: le immagini vengono prima scaricate in .zip, gli ordini restano.</span>
+    </div>
+    <div id="archiveStatus" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.85rem"></div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="setFilter('tutti',this)">Tutti</button>
       <button class="filter-btn" onclick="setFilter('Nuovo',this)">Nuovi</button>
@@ -426,13 +433,45 @@ function showPage(p) {
   document.querySelectorAll('.nav-tab')[p==='form'?0:1].classList.add('active');
 }
 function showAdminGate() { showPage('admin'); if (adminOk) loadOrdersFromSupabase(); }
-function checkPwd() {
-  if (document.getElementById('adminPwd').value === '916sps') {
-    adminOk = true;
+/* La password NON è nel codice: la verifica il database (funzione admin_login).
+   Viene tenuta solo in memoria per la sessione e inviata a ogni operazione admin. */
+let adminPassword = '';
+async function rpc(fn, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  const txt = await res.text();
+  let data = null; try { data = txt ? JSON.parse(txt) : null; } catch(e) { data = txt; }
+  if (!res.ok) {
+    const msg = (data && data.message) || txt || ('HTTP ' + res.status);
+    const err = new Error(msg); err.status = res.status; err.code = data && data.code; throw err;
+  }
+  return data;
+}
+function adminRpc(fn, body) { return rpc(fn, Object.assign({ p: adminPassword }, body || {})); }
+function isPwdError(e) { return e && (e.code === '28P01' || /password_errata/.test(e.message)); }
+function lockAdmin(msg) {
+  adminOk = false; adminPassword = '';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('lockScreen').style.display = '';
+  if (msg) showToast(msg);
+}
+async function checkPwd() {
+  const input = document.getElementById('adminPwd');
+  const pwd = input.value;
+  if (!pwd) return;
+  try {
+    await rpc('admin_login', { p: pwd });
+    adminPassword = pwd; adminOk = true; input.value = '';
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     loadOrdersFromSupabase();
-  } else { showToast('❌ Password errata'); document.getElementById('adminPwd').value = ''; }
+  } catch(e) {
+    input.value = '';
+    showToast(isPwdError(e) ? '❌ Password errata' : '⚠️ Impossibile collegarsi al database: ' + e.message);
+  }
 }
 
 // ---- PRODUCTS ----
@@ -598,10 +637,18 @@ function validate() {
     fe('f_piva','e_piva',!pv); if(!pv) ok=false;
   }
 
+  document.getElementById('submitErrBanner').classList.remove('on');
   const banner = document.getElementById('errBanner');
   if (!ok) { banner.classList.add('on'); setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'nearest'}),50); }
   else banner.classList.remove('on');
   return ok;
+}
+
+function showSubmitError(msg) {
+  const b = document.getElementById('submitErrBanner');
+  b.textContent = '⚠ ' + msg;
+  b.classList.add('on');
+  setTimeout(()=>b.scrollIntoView({behavior:'smooth',block:'center'}),50);
 }
 
 const SUPABASE_URL = 'https://uhuldfqetuhuojdniyud.supabase.co';
@@ -642,14 +689,17 @@ async function submitOrder() {
   btn.textContent = '⏳ Invio in corso...';
   btn.disabled = true;
 
-  // Get next order number from Supabase (count of existing orders + 1)
+  // Numero ordine dal database (progressivo, non si ripete anche se si eliminano ordini)
   try {
-    const cntRes = await fetch(`${SUPABASE_URL}/rest/v1/ordini?select=id`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'count=exact' }
-    });
-    const total = parseInt(cntRes.headers.get('content-range')?.split('/')[1] || '0');
-    counter = total + 1;
-  } catch(e) { counter++; }
+    counter = parseInt(await rpc('prossimo_numero_ordine'), 10);
+    if (!counter) throw new Error('numero non valido');
+  } catch(e) {
+    console.warn('Errore numero ordine:', e);
+    btn.textContent = '✦ Invia ordine';
+    btn.disabled = false;
+    showSubmitError('Il servizio ordini non risponde in questo momento. L\'ordine NON è stato inviato: riprova tra qualche minuto o contattaci direttamente.');
+    return;
+  }
   const orderId = String(counter).padStart(4,'0');
   const hasFatt = document.getElementById('fattToggle').classList.contains('on');
   const prodotti = collectProds();
@@ -660,6 +710,12 @@ async function submitOrder() {
     if (prods[i].files && prods[i].files.length > 0) {
       const urls = await uploadImages(orderId, i, prods[i].files);
       prodotti[i].immagini_urls = urls;
+      if (urls.length < prods[i].files.length) {
+        btn.textContent = '✦ Invia ordine';
+        btn.disabled = false;
+        showSubmitError(`Non è stato possibile caricare ${prods[i].files.length - urls.length} immagine/i. L'ordine NON è stato inviato: controlla la connessione e riprova.`);
+        return;
+      }
     }
   }
 
@@ -722,12 +778,13 @@ async function submitOrder() {
       },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const err = await res.text();
-      console.warn('Errore Supabase:', err);
-    }
+    if (!res.ok) throw new Error(await res.text() || ('HTTP ' + res.status));
   } catch(err) {
     console.warn('Errore invio:', err);
+    btn.textContent = '✦ Invia ordine';
+    btn.disabled = false;
+    showSubmitError('Non è stato possibile salvare l\'ordine. L\'ordine NON è stato inviato: riprova tra qualche minuto o contattaci direttamente.');
+    return;
   }
 
   orders.unshift(order);
@@ -760,14 +817,22 @@ function resetForm() {
 async function loadOrdersFromSupabase() {
   const list = document.getElementById('ordersList');
   list.innerHTML = '<div class="empty-state"><div class="eicon">⏳</div><p>Caricamento ordini...</p></div>';
+  let data;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/ordini?select=*&order=created_at.desc`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      }
-    });
-    const data = await res.json();
+    data = await adminRpc('admin_ordini');
+    if (!Array.isArray(data)) throw new Error('risposta non valida dal database');
+  } catch(e) {
+    console.error('Errore caricamento:', e);
+    if (isPwdError(e)) { lockAdmin('🔒 Password non più valida, accedi di nuovo'); return; }
+    /* NON svuotiamo la lista: mostriamo l'errore, gli ordini restano nel database */
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    list.innerHTML = `<div class="empty-state"><div class="eicon">⚠️</div>
+      <p><strong>Impossibile caricare gli ordini.</strong><br>Gli ordini NON sono stati cancellati: il database non risponde.</p>
+      <p style="font-size:0.8rem;color:#9a6a4a;margin-top:0.5rem">Messaggio del database: ${esc(e.message)}</p>
+      <button class="export-btn" style="margin-top:0.75rem" onclick="loadOrdersFromSupabase()">↻ Riprova</button></div>`;
+    return;
+  }
+  {
     orders = data.map(row => {
       let prodotti = [];
       try { prodotti = JSON.parse(row.articoli || '[]'); } catch(e) { prodotti = []; }
@@ -784,12 +849,10 @@ async function loadOrdersFromSupabase() {
         prodotti,
         note: row.note||'',
         fatturazione,
-        configurazione: row.configurazione ? (typeof row.configurazione === 'string' ? JSON.parse(row.configurazione) : row.configurazione) : null,
+        configurazione: (() => { try { return row.configurazione ? (typeof row.configurazione === 'string' ? JSON.parse(row.configurazione) : row.configurazione) : null; } catch(e) { return null; } })(),
+        archiviateIl: row.immagini_archiviate_il || null,
       };
     });
-  } catch(e) {
-    console.error('Errore caricamento:', e);
-    orders = [];
   }
   renderDash();
 }
@@ -852,7 +915,10 @@ function renderDash() {
     const bc = {'Nuovo':'s-nuovo','In lavorazione':'s-wip','Completato':'s-done'}[o.status]||'';
     const ph = o.prodotti.map((p, pi)=>{
       const validUrls = (p.immagini_urls||[]).filter(u => u && typeof u === 'string' && u.startsWith('http'));
-      const imgs = validUrls.length
+      const archivedN = (p.immagini_archiviate||[]).length || (o.archiviateIl && !validUrls.length ? (p.immagini||[]).length : 0);
+      const imgs = (o.archiviateIl && archivedN)
+        ? `<div class="prow-imgs"><span title="Le immagini sono nello zip di archivio scaricato quel giorno">📦 ${archivedN} immagin${archivedN===1?'e archiviata':'i archiviate'} il ${new Date(o.archiviateIl).toLocaleDateString('it-IT')}</span></div>`
+        : validUrls.length
         ? `<div class="prow-imgs">${validUrls.map(url=>`<a href="${url}" target="_blank" rel="noopener" style="margin-right:6px;display:inline-block"><img src="${url}" style="height:64px;border-radius:6px;cursor:pointer;border:2px solid #e2d9c8" title="Clicca per aprire" onerror="this.style.display='none'"></a>`).join('')}</div>`
         : (p.immagini?.length ? `<div class="prow-imgs">${p.immagini.map(i=>`<span>🖼 ${i}</span>`).join('')}</div>` : '');
       /* Configurazione: cerca prima in p.configurazione (nuovo), poi in o.configurazione (vecchi ordini) */
@@ -923,19 +989,16 @@ function setFilter(f,btn) { filterState=f; document.querySelectorAll('.filter-bt
 async function updateStatus(id, s) {
   const o = orders.find(x=>x.id===id);
   if (!o) return;
-  o.status = s;
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/ordini?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({ stato: s }),
-    });
-  } catch(e) { console.warn('Errore aggiornamento stato:', e); }
+    await adminRpc('admin_stato', { id_ordine: id, nuovo_stato: s });
+  } catch(e) {
+    console.warn('Errore aggiornamento stato:', e);
+    if (isPwdError(e)) { lockAdmin('🔒 Password non più valida, accedi di nuovo'); return; }
+    renderDash();
+    showToast('⚠️ Stato NON aggiornato: ' + e.message);
+    return;
+  }
+  o.status = s;
   renderDash();
   showToast('✓ Stato aggiornato');
 }
@@ -943,17 +1006,135 @@ async function updateStatus(id, s) {
 async function delOrder(id) {
   if (!confirm('Eliminare questo ordine?')) return;
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/ordini?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      }
-    });
-  } catch(e) { console.warn('Errore eliminazione:', e); }
+    await adminRpc('admin_elimina', { id_ordine: id });
+  } catch(e) {
+    console.warn('Errore eliminazione:', e);
+    if (isPwdError(e)) { lockAdmin('🔒 Password non più valida, accedi di nuovo'); return; }
+    showToast('⚠️ Ordine NON eliminato: ' + e.message);
+    return;
+  }
   orders = orders.filter(x=>x.id!==id);
   renderDash();
   showToast('🗑 Ordine eliminato');
+}
+
+// ---- ARCHIVIAZIONE IMMAGINI DEGLI ORDINI COMPLETATI ----
+/* Flusso sicuro: 1) il database segna gli ordini e dà l'elenco dei file
+   2) i file vengono scaricati in zip sul computer  3) solo dopo conferma vengono cancellati
+   4) il database aggiorna gli ordini (restano tutti, senza immagini). */
+async function loadJSZip() {
+  if (window.JSZip) return;
+  /* di solito è già caricato in <head>; altrimenti lo carichiamo ora (max 20 secondi) */
+  await Promise.race([
+    new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = () => rej(new Error('impossibile caricare la libreria per creare gli zip'));
+      document.head.appendChild(s);
+    }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('la libreria per creare gli zip non si carica, ricarica la pagina e riprova')), 20000)),
+  ]);
+}
+function archiveStatus(msg) {
+  const el = document.getElementById('archiveStatus');
+  el.style.display = msg ? 'block' : 'none';
+  el.innerHTML = msg || '';
+}
+async function archiveCompleted() {
+  const candidates = orders.filter(o => o.status === 'Completato' && !o.archiviateIl);
+  if (!candidates.length) { showToast('Nessun ordine completato da archiviare'); return; }
+  if (!confirm(`Archiviare le immagini di ${candidates.length} ordini completati?\n\n` +
+      `1. Le immagini vengono scaricate sul computer in file .zip\n` +
+      `2. Ti verrà chiesto di confermare che i file sono stati scaricati\n` +
+      `3. Solo allora vengono cancellate da Supabase\n\n` +
+      `Gli ordini restano tutti visibili, senza immagini.`)) return;
+  const btn = document.getElementById('archiveBtn');
+  btn.disabled = true;
+  let started = false, deleting = false;
+  try {
+    archiveStatus('⏳ Preparazione elenco file…');
+    await loadJSZip();
+    const rows = await adminRpc('admin_archivia_inizia', { ids: candidates.map(o => o.id) });
+    started = true;
+    const ids = rows.map(r => r.id);
+    const files = [...new Set(rows.flatMap(r => r.files || []))];
+    const indice = rows.map(r => ({ id: r.id, numero: r.numero, cliente: r.nome, file: r.files }));
+
+    /* scarica i file ancora presenti (alcuni potrebbero essere già stati tolti) */
+    const H = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const found = [], missing = [];
+    let chunk = [], chunkSize = 0, zipN = 0;
+    const today = new Date().toISOString().slice(0,10);
+    const CHUNK_MAX = 180 * 1024 * 1024;
+    const saveChunk = async (last) => {
+      if (!chunk.length && !(last && zipN === 0)) return;
+      zipN++;
+      archiveStatus(`⏳ Creo l'archivio ${zipN}…`);
+      const zip = new JSZip();
+      if (zipN === 1) zip.file('_elenco_ordini_archiviati.json', JSON.stringify(indice, null, 1));
+      for (const f of chunk) zip.file(f.path, f.blob);
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `archivio-immagini-${today}-parte${zipN}.zip`;
+      document.body.appendChild(a); a.click(); a.remove();
+      await new Promise(r => setTimeout(r, 1500));
+      chunk = []; chunkSize = 0;
+    };
+    for (let i = 0; i < files.length; i += 6) {
+      archiveStatus(`⏳ Scarico le immagini: ${Math.min(i + 6, files.length)} di ${files.length}…`);
+      await Promise.all(files.slice(i, i + 6).map(async path => {
+        const url = `${SUPABASE_URL}/storage/v1/object/authenticated/immagini-ordini/${path.split('/').map(encodeURIComponent).join('/')}`;
+        let res;
+        try { res = await fetch(url, { headers: H }); } catch(e) { throw new Error('download interrotto, controlla la connessione'); }
+        if (res.status === 400 || res.status === 404) { missing.push(path); return; }
+        if (!res.ok) throw new Error(`download non riuscito (${res.status}) per ${path}`);
+        const blob = await res.blob();
+        found.push(path);
+        chunk.push({ path, blob }); chunkSize += blob.size;
+      }));
+      if (chunkSize > CHUNK_MAX) await saveChunk(false);
+    }
+    await saveChunk(true);
+
+    archiveStatus(`✅ Scaricati ${zipN} file .zip con ${found.length} immagini.`);
+    if (!confirm(`Sono stati scaricati ${zipN} file "archivio-immagini-${today}-parte….zip" con ${found.length} immagini.\n\n` +
+        `Controlla che siano nella cartella Download e che si aprano.\n\n` +
+        `Premi OK per CANCELLARE queste immagini da Supabase, oppure Annulla per fermarti (non viene cancellato nulla).`)) {
+      await adminRpc('admin_archivia_annulla');
+      archiveStatus('Archiviazione annullata: nessuna immagine è stata cancellata.');
+      return;
+    }
+
+    /* cancellazione: il database permette di togliere solo i file degli ordini in archiviazione */
+    deleting = true;
+    let deleted = 0;
+    for (let i = 0; i < found.length; i += 100) {
+      archiveStatus(`⏳ Cancello da Supabase: ${Math.min(i + 100, found.length)} di ${found.length}…`);
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/immagini-ordini`, {
+        method: 'DELETE', headers: Object.assign({ 'Content-Type': 'application/json' }, H),
+        body: JSON.stringify({ prefixes: found.slice(i, i + 100) }),
+      });
+      if (!res.ok) throw new Error('cancellazione non riuscita: ' + await res.text());
+      const out = await res.json();
+      deleted += Array.isArray(out) ? out.length : 0;
+    }
+    if (deleted < found.length) throw new Error(`cancellate solo ${deleted} immagini su ${found.length}`);
+
+    const n = await adminRpc('admin_archivia_fine', { ids });
+    archiveStatus(`✅ Archiviazione completata: ${n} ordini, ${deleted} immagini tolte da Supabase. Gli zip sono nella cartella Download.`);
+    showToast('📦 Archiviazione completata');
+    await loadOrdersFromSupabase();
+  } catch(e) {
+    console.error('Errore archiviazione:', e);
+    if (started) { try { await adminRpc('admin_archivia_annulla'); } catch(_) {} }
+    if (isPwdError(e)) { lockAdmin('🔒 Password non più valida, accedi di nuovo'); return; }
+    archiveStatus(deleting
+      ? `⚠️ Archiviazione interrotta durante la cancellazione: ${e.message}. Gli ordini sono intatti; alcune immagini potrebbero essere già state tolte, ma sono tutte negli zip scaricati. Puoi riprovare.`
+      : `⚠️ Archiviazione interrotta: ${e.message}. Non è stata cancellata nessuna immagine.`);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function downloadAllImages(id) {
