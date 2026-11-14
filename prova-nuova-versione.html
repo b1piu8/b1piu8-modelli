@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>B1PIU'8 di Biffi Davide — Ordini</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1023,12 +1024,16 @@ async function delOrder(id) {
    4) il database aggiorna gli ordini (restano tutti, senza immagini). */
 async function loadJSZip() {
   if (window.JSZip) return;
-  await new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload = res; s.onerror = () => rej(new Error('impossibile caricare JSZip'));
-    document.head.appendChild(s);
-  });
+  /* di solito è già caricato in <head>; altrimenti lo carichiamo ora (max 20 secondi) */
+  await Promise.race([
+    new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = () => rej(new Error('impossibile caricare la libreria per creare gli zip'));
+      document.head.appendChild(s);
+    }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('la libreria per creare gli zip non si carica, ricarica la pagina e riprova')), 20000)),
+  ]);
 }
 function archiveStatus(msg) {
   const el = document.getElementById('archiveStatus');
