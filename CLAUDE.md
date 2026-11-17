@@ -59,7 +59,11 @@ In `index.html` esistono due handler `addEventListener('message', ...)` separati
 
 ### Modelli 3D
 
-Tutti i file `.draco.glb` nella root sono i modelli di abbigliamento. Corrispondono 1:1 alle opzioni `<select>` in `configuratore.html`. Per aggiungere un nuovo modello: copiare il file `.glb` nella root, aggiungere un `<option>` a `#sel-model` in `configuratore.html`, e aggiungere il nome prodotto all'array `CATALOGUE` in `index.html`.
+Tutti i file `.draco.glb` nella root sono i modelli di abbigliamento. Corrispondono 1:1 alle opzioni `<select>` in `configuratore.html`. Il configuratore 3D non è più nel modulo clienti: resta solo nell'admin per gli ordini vecchi.
+
+### Catalogo prodotti
+
+I prodotti del modulo sono nell'array `CATALOGO` in `index.html`, diviso per sport: ogni voce è `[nome completo, nome file]`. Le immagini sono in `prodotti/<nome file>.jpg` (850×1075, JPG RGB). Il cliente li sceglie dalla finestra "Seleziona articolo" (anche più insieme, pulsante CARICA). Per aggiungere un prodotto: mettere l'immagine in `prodotti/` (convertita da CMYK a RGB) e aggiungere la voce nella sezione giusta di `CATALOGO`.
 
 ### Struttura dati di una configurazione salvata
 

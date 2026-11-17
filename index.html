@@ -168,6 +168,55 @@
   .lock-hint { font-size: 0.75rem; color: #aaa; margin-top: 0.75rem; }
   .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--ink); color: var(--gold-light); padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.85rem; font-family: 'DM Sans', sans-serif; box-shadow: 0 4px 20px rgba(0,0,0,0.25); transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 999; pointer-events: none; }
   .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ---- Selezione articolo con immagini ---- */
+  .pick-btn { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 0.65rem; padding: 0.4rem 0.75rem; background: #fff; border: 1.5px solid var(--border); border-radius: 6px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--ink); text-align: left; transition: border-color .15s, box-shadow .15s; }
+  .pick-btn:hover, .pick-btn:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,169,110,0.15); outline: none; }
+  .pick-btn.error { border-color: var(--error) !important; box-shadow: 0 0 0 3px rgba(192,57,43,0.1) !important; }
+  .pick-btn .pick-empty { color: #8a7a62; font-weight: 500; }
+  .pick-btn img { width: 44px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+  .pick-btn .pick-name { font-weight: 500; line-height: 1.25; }
+  .pick-btn .pick-change { margin-left: auto; font-size: 0.75rem; color: var(--rust); white-space: nowrap; }
+  .picker-overlay { position: fixed; inset: 0; background: rgba(26,18,8,0.72); z-index: 2000; display: none; align-items: flex-start; justify-content: center; padding: 1.5rem 1rem; overflow-y: auto; }
+  .picker-overlay.on { display: flex; }
+  .picker-box { background: var(--cream); border-radius: 12px; width: 100%; max-width: 1000px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+  .picker-head { position: sticky; top: 0; z-index: 2; background: var(--ink); color: var(--gold); border-radius: 12px 12px 0 0; padding: 0.9rem 3.2rem 0.9rem 1.1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .picker-head h3 { font-family: 'Playfair Display', serif; font-weight: 400; font-size: 1.15rem; margin-right: auto; }
+  .picker-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .picker-tab { background: rgba(200,169,110,0.15); color: var(--gold-light); border: none; border-radius: 99px; padding: 0.35rem 0.8rem; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; cursor: pointer; }
+  .picker-tab:hover { background: rgba(200,169,110,0.3); }
+  .picker-close { position: absolute; top: 0.7rem; right: 0.9rem; background: none; border: none; color: var(--gold-light); font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0.15rem 0.35rem; }
+  .picker-body { padding: 0.5rem 1.1rem 1.25rem; }
+  .picker-box { overflow: visible; }
+  .picker-sport { font-family: 'Playfair Display', serif; font-size: 1.1rem; margin: 1.1rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
+  .picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+  @media(max-width:760px) { .picker-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media(max-width:520px) { .picker-head h3 { width: 100%; } .picker-tabs { flex-wrap: nowrap; overflow-x: auto; width: calc(100% + 2.1rem); padding-bottom: 2px; } .picker-tab { white-space: nowrap; } .picker-grid { grid-template-columns: repeat(2, 1fr); gap: 0.55rem; } .picker-overlay { padding: 0; } .picker-box { border-radius: 0; min-height: 100%; } .picker-head { border-radius: 0; } }
+  .picker-cell { position: relative; }
+  .picker-card { position: relative; display: block; width: 100%; padding: 0; border: 3px solid transparent; border-radius: 8px; overflow: hidden; background: #e9e1d2; cursor: pointer; aspect-ratio: 850 / 1075; transition: transform .2s ease .15s, border-color .12s, box-shadow .2s ease .15s; }
+  .picker-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .picker-card:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) {
+    .picker-card:hover { transform: scale(1.75); z-index: 5; box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
+    .picker-cell:hover { z-index: 5; }
+    .picker-zoom { display: none; }
+  }
+  .picker-card.selected { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,169,110,0.55); }
+  .picker-check { position: absolute; top: 6px; left: 6px; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.85); border: 2px solid #fff; color: #fff; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .picker-card.selected .picker-check { background: var(--sage); }
+  .picker-zoom { position: absolute; top: 6px; right: 6px; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(26,18,8,0.65); color: #fff; font-size: 1rem; cursor: pointer; z-index: 2; }
+  .picker-foot { position: sticky; bottom: 0; z-index: 6; background: var(--card); border-top: 1px solid var(--border); border-radius: 0 0 12px 12px; padding: 0.75rem 1.1rem; display: flex; align-items: center; gap: 0.6rem; }
+  .picker-count { margin-right: auto; font-size: 0.8rem; color: #6d5f4a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .picker-cancel { background: none; border: 1.5px solid var(--border); color: var(--ink); border-radius: 6px; padding: 0.6rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; cursor: pointer; }
+  .picker-load { background: var(--ink); color: var(--gold); border: none; border-radius: 6px; padding: 0.65rem 1.3rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+  .picker-load:disabled { opacity: 0.4; cursor: not-allowed; }
+  @media(max-width:520px) { .picker-foot { border-radius: 0; flex-wrap: wrap; } .picker-count { width: 100%; margin-right: 0; } .picker-foot .picker-load { flex: 1; } }
+  .picker-preview { position: fixed; inset: 0; z-index: 2100; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; padding: 1rem; }
+  .picker-preview.on { display: flex; }
+  .picker-preview-box { max-width: 520px; width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
+  .picker-preview-box img { width: 100%; max-height: 78vh; object-fit: contain; border-radius: 8px; }
+  .picker-preview-actions { display: flex; gap: 0.6rem; justify-content: center; }
+  .picker-preview-actions .picker-cancel { color: #fff; border-color: rgba(255,255,255,0.5); }
 </style>
 </head>
 <body>
@@ -393,20 +442,50 @@
 </div>
 
 <script>
-const CATALOGUE = [
-  "Pantaloncino DNA","Pantaloncino MINÙ","Pantaloncino tasche SHAQ",
-  "Top CARACAS","Top BEVERLY",
-  "Maglia Volley Uomo IVAN","Maglia Volley Uomo MATT","Maglia Volley Uomo EARVIN",
-  "Maglia Volley Donna ROBIN","Maglia Volley Donna TAI","Maglia Volley Donna LEO",
-  "Maglia Volley Donna HANNA","Maglia Volley Donna MOKI",
-  "Pantaloncino Volley Donna BERE","Pantaloncino Volley Donna ASIA",
-  "Manicotti OCTOPUS",
-  "Canotta Uomo KIRALY","Canotta Uomo REGO","Canotta Uomo PHIL",
-  "Canotta Donna ELLE",
-  "Leggins Uomo TOBAGO","Leggins Donna ARENAS",
-  "Canotta Basket Uomo KAREEM / JAMES","Canotta Basket Uomo LARRY / MAGIC",
-  "Canotta Basket Donna TIM / KARL","Canotta Basket Donna KEVIN / CHARLES"
+/* Catalogo prodotti diviso per sport. Ogni articolo: [nome completo, file immagine in /prodotti] */
+const CATALOGO = [
+  { sport: 'Pantaloncini', items: [
+    ['Pantaloncino DNA', 'pantaloncino-dna'],
+    ['Pantaloncino MINÙ', 'pantaloncino-minu'],
+    ['Pantaloncino tasche SHAQ', 'pantaloncino-shaq'],
+  ]},
+  { sport: 'Volley', items: [
+    ['Maglia Volley Uomo IVAN', 'maglia-volley-uomo-ivan'],
+    ['Maglia Volley Uomo Manica raglan MATT', 'maglia-volley-uomo-matt'],
+    ['Maglia Volley Donna ROBIN', 'maglia-volley-donna-robin'],
+    ['Maglia Volley Donna TAI', 'maglia-volley-donna-tai'],
+    ['Maglia Volley Donna + Fianchetti HANNA', 'maglia-volley-donna-hanna'],
+    ['Maglia Volley Donna + Fianchetti LEO', 'maglia-volley-donna-leo'],
+    ['Maglia Volley Donna Manica raglan MOKI', 'maglia-volley-donna-moki'],
+    ['Pantaloncino gara Volley Donna ASIA', 'pantaloncino-volley-donna-asia'],
+    ['Pantaloncino gara Volley Donna BERE', 'pantaloncino-volley-donna-bere'],
+    ['Manicotti OCTOPUS', 'manicotti-octopus'],
+  ]},
+  { sport: 'Beach Volley', items: [
+    ['Canotta Beach Volley Uomo KIRALY', 'canotta-beach-volley-uomo-kiraly'],
+    ['Canotta Uomo REGO', 'canotta-uomo-rego'],
+    ['Canotta Uomo + Fianchetti PHIL', 'canotta-uomo-phil'],
+    ['Canotta Beach Volley Donna ELLE', 'canotta-beach-volley-donna-elle'],
+    ['Top BEVERLY', 'top-beverly'],
+    ['Top CARACAS', 'top-caracas'],
+    ['Slip Uomo HAVANA', 'slip-uomo-havana'],
+    ['Slip Brasiliano Donna BRASILIA', 'slip-donna-brasilia'],
+  ]},
+  { sport: 'Basket', items: [
+    ['Canotta Basket Uomo JAMES - KAREEM', 'canotta-basket-uomo-james-kareem'],
+    ['Canotta Basket Uomo + Fianchetti LARRY - MAGIC', 'canotta-basket-uomo-larry-magic'],
+    ['Canotta Basket Donna KARL - TIM', 'canotta-basket-donna-karl-tim'],
+    ['Canotta Basket Donna + Fianchetti CHARLES - KEVIN', 'canotta-basket-donna-charles-kevin'],
+    ['Pantaloncino Basket KOBE', 'pantaloncino-basket-kobe'],
+  ]},
+  { sport: 'Abbigliamento', items: [
+    ['Felpa zip lunga WALLABY', 'felpa-wallaby'],
+    ['Leggins Uomo TOBAGO', 'leggins-uomo-tobago'],
+    ['Leggins Donna ARENAS', 'leggins-donna-arenas'],
+  ]},
 ];
+const CATALOGUE = CATALOGO.flatMap(g => g.items.map(it => it[0]));
+const PROD_IMG = Object.fromEntries(CATALOGO.flatMap(g => g.items.map(it => [it[0], 'prodotti/' + it[1] + '.jpg'])));
 const SIZES = ["XXS","XS","S","M","L","XL","XXL","3XL","4XL","Allego elenco"];
 
 let orders = [];
@@ -482,7 +561,6 @@ function addProduct() {
   prods.push({ id, files: [] });
   const n = prods.length;
 
-  const catOpts = CATALOGUE.map(p=>`<option value="${p}">${p}</option>`).join('');
   const sizeOpts = SIZES.map(s=>`<option value="${s}">${s}</option>`).join('');
 
   const el = document.createElement('div');
@@ -495,10 +573,8 @@ function addProduct() {
     <div class="form-row" style="margin-bottom:0.75rem">
       <div class="field">
         <label>Prodotto <span class="req">*</span></label>
-        <select id="pn_${id}">
-          <option value="">— Seleziona articolo —</option>
-          ${catOpts}
-        </select>
+        <input type="hidden" id="pn_${id}" value="">
+        <button type="button" class="pick-btn" id="pb_${id}" onclick="openPicker(${id})"><span class="pick-empty">👕 Seleziona articolo</span></button>
         <span class="err" id="en_${id}">Seleziona un prodotto</span>
       </div>
       <div class="field">
@@ -591,7 +667,8 @@ function toggleFatt() {
 function fe(fid, eid, show) {
   const el = document.getElementById(fid); const er = document.getElementById(eid);
   if (!el||!er) return;
-  el.classList.toggle('error', show); er.classList.toggle('on', show);
+  const target = (el.type === 'hidden' && fid.startsWith('pn_')) ? document.getElementById('pb_' + fid.slice(3)) || el : el;
+  target.classList.toggle('error', show); er.classList.toggle('on', show);
 }
 
 function validate() {
@@ -640,6 +717,116 @@ function validate() {
   else banner.classList.remove('on');
   return ok;
 }
+
+// ---- SELEZIONE ARTICOLO CON IMMAGINI (anche più articoli insieme) ----
+let pickerProdId = null;
+let pickerSel = [];          // nomi selezionati, in ordine di scelta
+function escAttr(t) { return String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function buildPicker() {
+  const body = document.getElementById('pickerBody');
+  if (body.dataset.ready) return;
+  document.getElementById('pickerTabs').innerHTML = CATALOGO.map((g, gi) =>
+    `<button type="button" class="picker-tab" onclick="document.getElementById('psport_${gi}').scrollIntoView({behavior:'smooth'})">${g.sport}</button>`).join('');
+  body.innerHTML = CATALOGO.map((g, gi) => `
+    <h4 class="picker-sport" id="psport_${gi}">${g.sport}</h4>
+    <div class="picker-grid">
+      ${g.items.map(([nome, file]) => `
+        <div class="picker-cell">
+          <button type="button" class="picker-card" data-nome="${escAttr(nome)}" onclick="togglePick(this.dataset.nome)" title="${escAttr(nome)}" aria-pressed="false">
+            <img src="prodotti/${file}.jpg" alt="${escAttr(nome)}" loading="lazy" width="850" height="1075">
+            <span class="picker-check" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="picker-zoom" data-nome="${escAttr(nome)}" onclick="openPreview(this.dataset.nome)" aria-label="Ingrandisci ${escAttr(nome)}">🔍</button>
+        </div>`).join('')}
+    </div>`).join('');
+  /* zoom al passaggio del mouse: l'immagine si ingrandisce verso l'interno della finestra */
+  body.querySelectorAll('.picker-card').forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      const r = card.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
+      const ox = r.left < W * 0.3 ? 'left' : (r.right > W * 0.7 ? 'right' : 'center');
+      const oy = r.top < H * 0.35 ? 'top' : (r.bottom > H * 0.65 ? 'bottom' : 'center');
+      card.style.transformOrigin = ox + ' ' + oy;
+    });
+  });
+  body.dataset.ready = '1';
+}
+function refreshPickerUI() {
+  document.querySelectorAll('#pickerBody .picker-card').forEach(c => {
+    const k = pickerSel.indexOf(c.dataset.nome);
+    c.classList.toggle('selected', k >= 0);
+    c.setAttribute('aria-pressed', k >= 0 ? 'true' : 'false');
+    c.querySelector('.picker-check').textContent = k >= 0 ? '✓' : '';
+  });
+  const n = pickerSel.length;
+  const btn = document.getElementById('pickerLoadBtn');
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? 'Carica' : `Carica ${n} articol${n === 1 ? 'o' : 'i'}`;
+  document.getElementById('pickerCount').textContent = n === 0
+    ? 'Tocca le immagini per scegliere uno o più articoli'
+    : pickerSel.join(' · ');
+  const pv = document.getElementById('pickerPreview');
+  if (pv.classList.contains('on')) {
+    const sel = pickerSel.includes(pv.dataset.nome);
+    document.getElementById('previewPickBtn').textContent = sel ? '✓ Selezionato — togli' : 'Seleziona';
+  }
+}
+function togglePick(nome) {
+  const k = pickerSel.indexOf(nome);
+  if (k >= 0) pickerSel.splice(k, 1); else pickerSel.push(nome);
+  refreshPickerUI();
+}
+function openPicker(prodId) {
+  pickerProdId = prodId;
+  buildPicker();
+  const current = document.getElementById('pn_' + prodId)?.value || '';
+  pickerSel = current ? [current] : [];
+  refreshPickerUI();
+  document.getElementById('pickerOverlay').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('pickerOverlay').scrollTop = 0;
+}
+function closePicker() {
+  closePreview();
+  document.getElementById('pickerOverlay').classList.remove('on');
+  document.body.style.overflow = '';
+  const btn = document.getElementById('pb_' + pickerProdId);
+  if (btn) btn.focus();
+  pickerProdId = null;
+}
+function setProduct(id, nome) {
+  const input = document.getElementById('pn_' + id);
+  const btn = document.getElementById('pb_' + id);
+  if (!input || !btn) return;
+  input.value = nome;
+  btn.innerHTML = `<img src="${PROD_IMG[nome] || ''}" alt=""><span class="pick-name">${escAttr(nome)}</span><span class="pick-change">Cambia</span>`;
+  fe('pn_' + id, 'en_' + id, false);
+}
+/* CARICA: il primo articolo va nella riga da cui si è aperta la finestra, gli altri in righe nuove */
+function loadPicked() {
+  if (!pickerSel.length) return;
+  const [first, ...rest] = pickerSel;
+  setProduct(pickerProdId, first);
+  rest.forEach(nome => { addProduct(); setProduct(prods[prods.length - 1].id, nome); });
+  const n = pickerSel.length;
+  closePicker();
+  if (n > 1) showToast(`✓ ${n} articoli aggiunti: indica taglia e quantità per ciascuno`);
+}
+/* anteprima grande (utile soprattutto sul telefono, dove non c'è il passaggio del mouse) */
+function openPreview(nome) {
+  const pv = document.getElementById('pickerPreview');
+  pv.dataset.nome = nome;
+  document.getElementById('previewImg').src = PROD_IMG[nome] || '';
+  document.getElementById('previewImg').alt = nome;
+  pv.classList.add('on');
+  refreshPickerUI();
+}
+function closePreview() { document.getElementById('pickerPreview').classList.remove('on'); }
+function previewToggle() { togglePick(document.getElementById('pickerPreview').dataset.nome); closePreview(); }
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('pickerPreview').classList.contains('on')) closePreview();
+  else if (document.getElementById('pickerOverlay').classList.contains('on')) closePicker();
+});
 
 function showSubmitError(msg) {
   const b = document.getElementById('submitErrBanner');
@@ -1488,5 +1675,31 @@ async function removeBrandLogo() {
 
 loadBrandLogo();
 </script>
+
+<!-- Finestra selezione articolo -->
+<div class="picker-overlay" id="pickerOverlay" onclick="if(event.target===this)closePicker()">
+  <div class="picker-box" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+    <div class="picker-head">
+      <h3 id="pickerTitle">Seleziona articolo</h3>
+      <div class="picker-tabs" id="pickerTabs"></div>
+      <button type="button" class="picker-close" onclick="closePicker()" aria-label="Chiudi">✕</button>
+    </div>
+    <div class="picker-body" id="pickerBody"></div>
+    <div class="picker-foot">
+      <span class="picker-count" id="pickerCount"></span>
+      <button type="button" class="picker-cancel" onclick="closePicker()">Annulla</button>
+      <button type="button" class="picker-load" id="pickerLoadBtn" onclick="loadPicked()" disabled>Carica</button>
+    </div>
+  </div>
+</div>
+<div class="picker-preview" id="pickerPreview" onclick="if(event.target===this)closePreview()">
+  <div class="picker-preview-box">
+    <img id="previewImg" src="" alt="">
+    <div class="picker-preview-actions">
+      <button type="button" class="picker-cancel" onclick="closePreview()">Chiudi</button>
+      <button type="button" class="picker-load" id="previewPickBtn" onclick="previewToggle()">Seleziona</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
